@@ -27,7 +27,7 @@
 
 <script>
 /* ------------------------------------------------------------------ */
-/* VanSecure brand tokens                                              */
+/* VanSecure brand tokens (matched to vansecure.co.uk's live site)     */
 /*  bg: #FFFFFF   panel: #F4F6F9   panel-2: #EAEEF3  border: #DCE3EC   */
 /*  navy (primary): #0F2C54   blue (accent): #1F5FA8                   */
 /*  gold (Sold Secure GOLD tier / CTA): #C79A3D                        */
@@ -235,8 +235,8 @@ function gaugeSVG(score) {
 
 /* ---------------------------- Render helpers ---------------------------- */
 
-function iconTag(name, size, cls) {
-  return `<i data-lucide="${name}" style="width:${size}px;height:${size}px" class="${cls || ''}"></i>`;
+function iconTag(name, size, cls, extra) {
+  return `<i data-lucide="${name}" style="width:${size}px;height:${size}px" class="${cls || ''}" ${extra || ''}></i>`;
 }
 
 function optionCardHTML(opt, section) {
@@ -406,33 +406,144 @@ function successStateHTML(score) {
   `;
 }
 
+/* ---------------------------- Brand shell: top bar, header, hero, CTA band, footer ---------------------------- */
+
+function topBarHTML() {
+  const stars = Array.from({ length: 5 }).map(() =>
+    `<i data-lucide="star" style="width:12px;height:12px;fill:#C79A3D;color:#C79A3D"></i>`
+  ).join("");
+  return `
+    <div class="bg-[#0F2C54] text-white">
+      <div class="max-w-6xl mx-auto px-5 py-2 flex items-center justify-between text-[12px]">
+        <div class="flex items-center gap-2">
+          <span class="hidden sm:inline text-[#B9C3D1]">Secure Your Van Today</span>
+          <span class="flex items-center gap-0.5">${stars}</span>
+          <span class="text-[#B9C3D1]">5.0 · 209 Google reviews</span>
+        </div>
+        <a href="tel:+442046368841" class="flex items-center gap-1.5 font-medium hover:text-[#C79A3D] transition-colors">
+          ${iconTag("phone", 13)} Call Now — 020 4636 8841
+        </a>
+      </div>
+    </div>
+  `;
+}
+
+function headerHTML() {
+  return `
+    <header class="border-b border-[#DCE3EC] bg-white">
+      <div class="max-w-6xl mx-auto px-5 py-4 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-md bg-[#0F2C54] flex items-center justify-center text-white">
+          ${iconTag("shield", 20)}
+        </div>
+        <div class="axm-display text-xl tracking-wide uppercase text-[#0F2C54]">VanSecure</div>
+        <div class="ml-auto">
+          <a href="https://wa.me/+447858192831" target="_blank" rel="noopener"
+            class="hidden sm:inline-flex items-center gap-2 axm-display uppercase tracking-wide text-xs px-4 py-2.5 rounded-md bg-[#C79A3D] text-white hover:bg-[#B78A2F] transition-colors">
+            ${iconTag("message-circle", 14)} Get a Quote
+          </a>
+        </div>
+      </div>
+    </header>
+  `;
+}
+
+function heroHTML() {
+  const stats = [
+    { value: "76%", label: "of UK tradespeople have had tools stolen" },
+    { value: "17 yrs", label: "of van security fitting experience" },
+    { value: "Sold Secure GOLD", label: "approved hardware, insurance rated" },
+  ];
+  return `
+    <section class="relative overflow-hidden bg-[#0F2C54]">
+      <div class="absolute inset-0 opacity-[0.06]"
+        style="background-image: repeating-linear-gradient(115deg, #fff 0px, #fff 1px, transparent 1px, transparent 60px);"></div>
+      <div class="relative max-w-6xl mx-auto px-5 pt-14 pb-10">
+        <div class="axm-mono text-[11px] tracking-[0.25em] text-[#C79A3D] uppercase mb-3">Bespoke Security, Configured By You</div>
+        <h1 class="axm-display text-3xl sm:text-4xl text-white leading-tight max-w-2xl mb-4">
+          Build Your Van's Security Setup, See Your Coverage Score
+        </h1>
+        <p class="text-[#B9C3D1] max-w-xl mb-8 text-sm sm:text-base">
+          Select locks, shields, dash cams and trackers for every panel of your van.
+          We'll turn your build into a tailored Price &amp; Risk Report — no off-the-shelf kits, no guesswork.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl">
+          ${stats.map((s) => `
+            <div class="border border-white/15 rounded-lg px-4 py-3 bg-white/5">
+              <div class="axm-display text-xl text-[#C79A3D]">${s.value}</div>
+              <div class="text-[12px] text-[#B9C3D1] mt-0.5">${s.label}</div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function ctaBandHTML() {
+  return `
+    <section class="bg-[#1F5FA8]">
+      <div class="max-w-6xl mx-auto px-5 py-10 flex flex-col sm:flex-row items-center justify-between gap-5">
+        <div class="text-center sm:text-left">
+          <div class="axm-display text-white text-xl uppercase tracking-wide">Prefer To Talk It Through First?</div>
+          <div class="text-[#DCE9F7] text-sm mt-1">Our mobile team fits across the South East — get a tailored quote today.</div>
+        </div>
+        <a href="https://wa.me/+447858192831" target="_blank" rel="noopener"
+          class="flex-shrink-0 flex items-center gap-2 axm-display uppercase tracking-wide text-sm px-6 py-3 rounded-md bg-[#C79A3D] text-white hover:bg-[#B78A2F] transition-colors">
+          ${iconTag("message-circle", 16)} WhatsApp Us
+        </a>
+      </div>
+    </section>
+  `;
+}
+
+function footerHTML() {
+  return `
+    <footer class="bg-[#0F2C54] text-[#B9C3D1]">
+      <div class="max-w-6xl mx-auto px-5 py-10 grid grid-cols-1 sm:grid-cols-3 gap-8 text-sm">
+        <div>
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-7 h-7 rounded bg-white/10 flex items-center justify-center text-white">${iconTag("shield", 14)}</div>
+            <div class="axm-display text-white uppercase tracking-wide text-sm">VanSecure</div>
+          </div>
+          <p class="text-[#8FA3C2] text-[13px] leading-relaxed">
+            VanSecure, Unit 1, East Warren Stables,<br/>Main Road, Sundridge, Sevenoaks, Kent, TN14 6EE
+          </p>
+        </div>
+        <div>
+          <div class="axm-mono text-[11px] tracking-[0.2em] text-white uppercase mb-3">Services</div>
+          <ul class="space-y-1.5 text-[13px] text-[#8FA3C2]">
+            <li>Stop Tool Theft</li>
+            <li>Stop Van Theft</li>
+            <li>Monitor Your Van</li>
+            <li>Custom Projects</li>
+          </ul>
+        </div>
+        <div>
+          <div class="axm-mono text-[11px] tracking-[0.2em] text-white uppercase mb-3">Get In Touch</div>
+          <div class="flex items-center gap-2 text-[13px] mb-2">${iconTag("phone", 13)} 020 4636 8841</div>
+          <a href="https://wa.me/+447858192831" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-[13px] text-[#C79A3D] hover:text-white transition-colors">
+            ${iconTag("message-circle", 13)} Message on WhatsApp
+          </a>
+        </div>
+      </div>
+      <div class="border-t border-white/10">
+        <div class="max-w-6xl mx-auto px-5 py-4 text-[12px] text-[#8FA3C2]">
+          Copyright VanSecure © 2026. All rights reserved.
+        </div>
+      </div>
+    </footer>
+  `;
+}
+
 /* ---------------------------- Main render ---------------------------- */
 
 function render() {
   const score = computeScore();
 
   document.getElementById("app").innerHTML = `
-    <header class="border-b border-[#DCE3EC] bg-white">
-      <div class="max-w-6xl mx-auto px-5 py-4 flex items-center gap-3">
-        <div class="w-9 h-9 rounded-md bg-[#0F2C54] flex items-center justify-center text-white">
-          ${iconTag("shield", 18)}
-        </div>
-        <div>
-          <div class="axm-display text-lg tracking-wide uppercase text-[#0F2C54]">VanSecure Configurator</div>
-          <div class="axm-mono text-[11px] text-[#5B6B82] tracking-wide">Build your fit-out. Get a custom Price &amp; Risk Report.</div>
-        </div>
-        <div class="ml-auto hidden sm:flex items-center gap-4">
-          <div class="flex items-center gap-1 text-[#C79A3D]">
-            ${Array.from({ length: 5 }).map(() => `<i data-lucide="star" style="width:13px;height:13px;fill:#C79A3D" ></i>`).join("")}
-            <span class="axm-mono text-[11px] text-[#5B6B82] ml-1">Google Reviews</span>
-          </div>
-          <div class="h-5 w-px bg-[#DCE3EC]"></div>
-          <div class="flex items-center gap-1.5 text-[#0F2C54] font-medium text-sm">
-            ${iconTag("phone", 14)} 020 4636 8841
-          </div>
-        </div>
-      </div>
-    </header>
+    ${topBarHTML()}
+    ${headerHTML()}
+    ${heroHTML()}
 
     <main class="max-w-6xl mx-auto px-5 py-8 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
       <div class="space-y-6">
@@ -458,6 +569,9 @@ function render() {
         `}
       </div>
     </main>
+
+    ${ctaBandHTML()}
+    ${footerHTML()}
   `;
 
   lucide.createIcons();
@@ -510,7 +624,6 @@ function attachListeners() {
   document.querySelectorAll("[data-field]").forEach((el) => {
     el.addEventListener("input", (e) => {
       state.lead[el.dataset.field] = e.target.value;
-      // Re-render only to toggle submit button enabled state, preserving focus is a fair tradeoff here.
       const submitBtn = document.querySelector('#lead-form button[type="submit"]');
       const hasAny = state.selectedOptions.size > 0;
       const canSubmit = state.lead.name.trim() && state.lead.email.trim() && hasAny;
