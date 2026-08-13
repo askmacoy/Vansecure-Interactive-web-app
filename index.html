@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VanSecure Configurator</title>
+
+<!-- Tailwind (CDN build, no bundler needed) -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Icons -->
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  body { font-family: 'Inter', sans-serif; }
+  .axm-display { font-family: 'Oswald', sans-serif; }
+  .axm-mono { font-family: 'IBM Plex Mono', monospace; }
+</style>
+</head>
+<body class="bg-white text-[#14213D]">
+
+<div id="app"></div>
+
+<script>
+/* ------------------------------------------------------------------ */
+/* VanSecure brand tokens (matched to vansecure.co.uk's live site)     */
+/*  bg: #FFFFFF   panel: #F4F6F9   panel-2: #EAEEF3  border: #DCE3EC   */
+/*  navy (primary): #0F2C54   blue (accent): #1F5FA8                   */
+/*  gold (Sold Secure GOLD tier / CTA): #C79A3D                        */
+/*  text: #14213D   text-dim: #5B6B82   success: #1F8A5C                */
+/* ------------------------------------------------------------------ */
+
+/* ---------------------- Data: hardware catalogue ---------------------- */
+
+const SECTIONS = [
+  {
+    id: "ns_door", title: "NS Sliding Door", sub: "Nearside", icon: "door-open", type: "multi",
+    groups: [
+      { label: "Deadlocks", options: [
+        { id: "ns_dl_gold_high", name: "Sold Secure GOLD Hook (High)", weight: 10 },
+        { id: "ns_dl_gold_low", name: "Sold Secure GOLD Hook (Low)", weight: 10 },
+        { id: "ns_dl_stronghold", name: "STRONGHOLD Reinforced Hook (High)", weight: 10 },
+      ]},
+      { label: "Shields", options: [
+        { id: "ns_sh_silver", name: "External Latch (Silver)", weight: 6 },
+        { id: "ns_sh_black", name: "External Latch (Black)", weight: 6 },
+        { id: "ns_sh_painted", name: "External Latch (Painted)", weight: 6 },
+        { id: "ns_sh_internal", name: "Internal Latch Shield", weight: 6 },
+      ]},
+      { label: "Extras", options: [
+        { id: "ns_ex_antipeel", name: "Anti Peel Bracket", weight: 6 },
+      ]},
+    ],
+  },
+  {
+    id: "os_door", title: "OS Sliding Door", sub: "Offside", icon: "door-open", type: "multi",
+    groups: [
+      { label: "Deadlocks", options: [
+        { id: "os_dl_gold_high", name: "Sold Secure GOLD Hook (High)", weight: 10 },
+        { id: "os_dl_gold_low", name: "Sold Secure GOLD Hook (Low)", weight: 10 },
+        { id: "os_dl_stronghold", name: "STRONGHOLD Reinforced Hook (High)", weight: 10 },
+      ]},
+      { label: "Shields", options: [
+        { id: "os_sh_silver", name: "External Latch (Silver)", weight: 6 },
+        { id: "os_sh_black", name: "External Latch (Black)", weight: 6 },
+        { id: "os_sh_painted", name: "External Latch (Painted)", weight: 6 },
+        { id: "os_sh_internal", name: "Internal Latch Shield", weight: 6 },
+      ]},
+      { label: "Extras", options: [
+        { id: "os_ex_antipeel", name: "Anti Peel Bracket", weight: 6 },
+      ]},
+    ],
+  },
+  {
+    id: "rear_doors", title: "Rear Barn Doors", sub: "Load compartment", icon: "door-closed", type: "multi",
+    groups: [
+      { label: "Deadlocks", options: [
+        { id: "rd_dl_gold_high", name: "Sold Secure GOLD Hook (High)", weight: 10 },
+        { id: "rd_dl_gold_low", name: "Sold Secure GOLD Hook (Low)", weight: 10 },
+        { id: "rd_dl_stronghold", name: "STRONGHOLD Reinforced Hook (High)", weight: 10 },
+      ]},
+      { label: "Shields", options: [
+        { id: "rd_sh_silver", name: "External Latch (Silver)", weight: 6 },
+        { id: "rd_sh_black", name: "External Latch (Black)", weight: 6 },
+        { id: "rd_sh_painted", name: "External Latch (Painted)", weight: 6 },
+        { id: "rd_sh_internal", name: "Internal Latch Shield", weight: 6 },
+      ]},
+    ],
+  },
+  {
+    id: "drivers_cab", title: "Driver's Cab Door", sub: "Front, nearside/offside", icon: "car", type: "multi",
+    groups: [
+      { label: "Deadlocks", options: [
+        { id: "dc_dl_straight", name: "Sold Secure GOLD Straight Deadlock", weight: 10 },
+        { id: "dc_dl_hook", name: "Sold Secure GOLD Hook Deadlock", weight: 10 },
+      ]},
+      { label: "Extras", options: [
+        { id: "dc_ex_loomguard", name: "Loom Guard", weight: 5 },
+        { id: "dc_ex_replock", name: "Replock (Drivers side only)", weight: 8 },
+      ]},
+    ],
+  },
+  {
+    id: "passenger_cab", title: "Passenger Cab Door", sub: "Front", icon: "car", type: "multi",
+    groups: [
+      { label: "Deadlocks", options: [
+        { id: "pc_dl_straight", name: "Sold Secure GOLD Straight Deadlock", weight: 10 },
+        { id: "pc_dl_hook", name: "Sold Secure GOLD Hook Deadlock", weight: 10 },
+      ]},
+      { label: "Extras", options: [
+        { id: "pc_ex_loomguard", name: "Loom Guard", weight: 5 },
+      ]},
+    ],
+  },
+  {
+    id: "tailgate", title: "Tailgate", sub: "Rear lift-up access", icon: "lock", type: "multi",
+    groups: [
+      { label: "Deadlocks", options: [
+        { id: "tg_dl_pair", name: "Sold Secure GOLD Approved Hook Deadlocks x2", weight: 14 },
+      ]},
+    ],
+  },
+  {
+    id: "dashcams", title: "Dash Cams", sub: "Choose one", icon: "video", type: "single",
+    groups: [
+      { label: "Dash Cams", options: [
+        { id: "dcam_ra_front", name: "Road Angel — Front Only", weight: 10 },
+        { id: "dcam_ra_fr", name: "Road Angel — Front and Rear", weight: 14 },
+        { id: "dcam_vw_front", name: "VehicleWatch — Front + Subscription", weight: 10 },
+        { id: "dcam_vw_fr", name: "VehicleWatch — Front + Rear + Subscription", weight: 14 },
+      ]},
+    ],
+  },
+  {
+    id: "immobiliser", title: "Immobiliser", sub: "Choose one", icon: "shield-alert", type: "single",
+    groups: [
+      { label: "Immobiliser", options: [
+        { id: "immo_scorpion", name: "Scorpion X", weight: 22 },
+      ]},
+    ],
+  },
+  {
+    id: "trackers", title: "Trackers", sub: "Choose one", icon: "map-pin", type: "single",
+    groups: [
+      { label: "Trackers", options: [
+        { id: "trk_vehicle", name: "Vehicle Only", weight: 12 },
+        { id: "trk_v5", name: "Vehicle + 5 Tool Locators", weight: 18 },
+        { id: "trk_v10", name: "Vehicle + 10 Tool Locators", weight: 24 },
+      ]},
+    ],
+  },
+];
+
+const ALL_OPTIONS = SECTIONS.flatMap((section) =>
+  section.groups.flatMap((group) =>
+    group.options.map((opt) => ({
+      ...opt,
+      sectionId: section.id,
+      sectionTitle: section.title,
+      sectionType: section.type,
+    }))
+  )
+);
+const OPTION_BY_ID = Object.fromEntries(ALL_OPTIONS.map((o) => [o.id, o]));
+
+const MAX_POINTS = SECTIONS.reduce((total, section) => {
+  const opts = section.groups.flatMap((g) => g.options);
+  if (section.type === "multi") return total + opts.reduce((s, o) => s + o.weight, 0);
+  return total + Math.max(...opts.map((o) => o.weight));
+}, 0);
+
+const VEHICLE_SPECS = [
+  { id: "highRoof", label: "High roof van" },
+  { id: "existingLocks", label: "Existing aftermarket locks or plates fitted" },
+  { id: "hasWindows", label: "Windows fitted in side or back doors" },
+  { id: "hasRacking", label: "Racking or equipment fixed inside the sliding door" },
+];
+
+/* ---------------------------- App state ---------------------------- */
+
+const state = {
+  vehicleSpec: { highRoof: false, existingLocks: false, hasWindows: false, hasRacking: false },
+  selectedOptions: new Set(),
+  openSection: SECTIONS[0].id,
+  otherWork: "",
+  lead: { name: "", email: "", phone: "" },
+  submitted: false,
+};
+
+/* ---------------------------- Gauge math ---------------------------- */
+
+function polarPoint(cx, cy, r, angleDeg) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
+}
+
+function gaugeSVG(score) {
+  const cx = 110, cy = 108, r = 88, strokeWidth = 14;
+  const angleForPercent = (p) => 180 - (p / 100) * 180;
+  const circumference = Math.PI * r;
+  const dashOffset = circumference * (1 - score / 100);
+  const ticks = [0, 25, 50, 75, 100];
+  const needleAngle = angleForPercent(score);
+  const needleTip = polarPoint(cx, cy, r - 22, needleAngle);
+  const zoneColor = score < 35 ? "#C0483A" : score < 70 ? "#C79A3D" : "#1F8A5C";
+
+  const tickLines = ticks.map((t) => {
+    const a = angleForPercent(t);
+    const inner = polarPoint(cx, cy, r - strokeWidth / 2 - 4, a);
+    const outer = polarPoint(cx, cy, r + strokeWidth / 2 + 4, a);
+    return `<line x1="${inner.x}" y1="${inner.y}" x2="${outer.x}" y2="${outer.y}" stroke="#B9C3D1" stroke-width="2" />`;
+  }).join("");
+
+  return `
+    <svg viewBox="0 0 220 130" class="w-full max-w-[280px]">
+      <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none" stroke="#E2E7EE" stroke-width="${strokeWidth}" stroke-linecap="round" />
+      <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none" stroke="${zoneColor}" stroke-width="${strokeWidth}" stroke-linecap="round"
+        stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}" style="transition: stroke-dashoffset 500ms ease, stroke 500ms ease" />
+      ${tickLines}
+      <line x1="${cx}" y1="${cy}" x2="${needleTip.x}" y2="${needleTip.y}" stroke="#0F2C54" stroke-width="2.5" stroke-linecap="round" style="transition: all 500ms ease" />
+      <circle cx="${cx}" cy="${cy}" r="5" fill="#0F2C54" />
+    </svg>
+    <div class="-mt-6 flex flex-col items-center">
+      <span class="axm-mono text-4xl font-semibold tracking-tight" style="color:${zoneColor}">
+        ${score}<span class="text-lg align-top">%</span>
+      </span>
+      <span class="axm-mono text-[10px] tracking-[0.25em] text-[#5B6B82] mt-1">COVERAGE SCORE</span>
+    </div>
+  `;
+}
+
+/* ---------------------------- Render helpers ---------------------------- */
+
+function iconTag(name, size, cls, extra) {
+  return `<i data-lucide="${name}" style="width:${size}px;height:${size}px" class="${cls || ''}" ${extra || ''}></i>`;
+}
+
+function optionCardHTML(opt, section) {
+  const selected = state.selectedOptions.has(opt.id);
+  const shape = section.type === "single" ? "rounded-full" : "rounded";
+  return `
+    <button type="button" data-action="toggle-option" data-option="${opt.id}" data-section="${section.id}"
+      class="w-full text-left rounded-md border px-3 py-2.5 flex items-center gap-3 transition-all
+        ${selected ? "bg-[#EAF1FA] border-[#1F5FA8] shadow-[0_0_0_1px_rgba(31,95,168,0.25)]" : "bg-white border-[#DCE3EC] hover:border-[#B9C3D1]"}">
+      <span class="flex-shrink-0 w-4 h-4 flex items-center justify-center border transition-colors ${shape}
+        ${selected ? "bg-[#1F5FA8] border-[#1F5FA8]" : "border-[#B9C3D1]"}">
+        ${selected ? iconTag("check", 11, "text-white") : ""}
+      </span>
+      <span class="text-sm ${selected ? "text-[#0F2C54] font-medium" : "text-[#3B4A61]"}">${opt.name}</span>
+    </button>
+  `;
+}
+
+function accordionSectionHTML(section) {
+  const isOpen = state.openSection === section.id;
+  const selectedCount = section.groups.flatMap((g) => g.options).filter((o) => state.selectedOptions.has(o.id)).length;
+
+  const groupsHTML = section.groups.map((group) => `
+    <div>
+      ${section.groups.length > 1 ? `<div class="axm-mono text-[10px] tracking-[0.2em] text-[#1F5FA8] mb-2 uppercase">${group.label}</div>` : ""}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        ${group.options.map((opt) => optionCardHTML(opt, section)).join("")}
+      </div>
+    </div>
+  `).join("");
+
+  return `
+    <div class="border border-[#DCE3EC] rounded-lg overflow-hidden bg-white shadow-[0_1px_2px_rgba(15,44,84,0.04)]">
+      <button type="button" data-action="toggle-section" data-section="${section.id}"
+        class="w-full flex items-center justify-between px-4 py-3.5 bg-[#F4F6F9] hover:bg-[#EAEEF3] transition-colors">
+        <div class="flex items-center gap-3">
+          <span class="flex-shrink-0 w-8 h-8 rounded-md bg-white border border-[#DCE3EC] flex items-center justify-center text-[#1F5FA8]">
+            ${iconTag(section.icon, 16)}
+          </span>
+          <div class="text-left">
+            <div class="axm-display text-[#0F2C54] text-[15px] tracking-wide uppercase">${section.title}</div>
+            <div class="axm-mono text-[10px] text-[#5B6B82] tracking-wider">${section.sub}</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          ${selectedCount > 0 ? `<span class="axm-mono text-[11px] px-2 py-0.5 rounded-full bg-[#1F5FA8]/10 text-[#1F5FA8] border border-[#1F5FA8]/25">${selectedCount} selected</span>` : ""}
+          ${iconTag("chevron-down", 16, `text-[#5B6B82] transition-transform ${isOpen ? "rotate-180" : ""}`)}
+        </div>
+      </button>
+      ${isOpen ? `<div class="px-4 py-4 space-y-4">${groupsHTML}</div>` : ""}
+    </div>
+  `;
+}
+
+function vehicleDetailsHTML() {
+  return `
+    <section class="border border-[#DCE3EC] rounded-lg bg-white p-4">
+      <h2 class="axm-display uppercase tracking-wide text-sm text-[#1F5FA8] mb-3">Van Details</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        ${VEHICLE_SPECS.map((spec) => {
+          const checked = state.vehicleSpec[spec.id];
+          return `
+            <button type="button" data-action="toggle-spec" data-spec="${spec.id}"
+              class="text-left rounded-md border px-3 py-2.5 flex items-center gap-3 transition-all
+                ${checked ? "bg-[#EAF1FA] border-[#1F5FA8]" : "bg-[#F4F6F9] border-[#DCE3EC] hover:border-[#B9C3D1]"}">
+              <span class="flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center
+                ${checked ? "bg-[#1F5FA8] border-[#1F5FA8]" : "border-[#B9C3D1]"}">
+                ${checked ? iconTag("check", 11, "text-white") : ""}
+              </span>
+              <span class="text-sm text-[#3B4A61]">${spec.label}</span>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function summarySection() {
+  const map = {};
+  Array.from(state.selectedOptions).forEach((id) => {
+    const opt = OPTION_BY_ID[id];
+    if (!opt) return;
+    if (!map[opt.sectionTitle]) map[opt.sectionTitle] = [];
+    map[opt.sectionTitle].push(opt.name);
+  });
+  const hasAny = state.selectedOptions.size > 0;
+
+  const body = !hasAny
+    ? `<p class="text-sm text-[#8593A8] axm-mono">No hardware selected yet.</p>`
+    : `<div class="space-y-3 max-h-64 overflow-y-auto pr-1">
+        ${Object.entries(map).map(([title, items]) => `
+          <div>
+            <div class="axm-mono text-[10px] tracking-[0.2em] text-[#1F5FA8] uppercase mb-1">${title}</div>
+            <ul class="space-y-1">
+              ${items.map((name) => `
+                <li class="text-[13px] text-[#3B4A61] flex items-start gap-2">
+                  <span class="text-[#1F8A5C] mt-0.5">${iconTag("check", 12)}</span>${name}
+                </li>`).join("")}
+            </ul>
+          </div>`).join("")}
+      </div>`;
+
+  return `
+    <div class="border border-[#DCE3EC] rounded-lg bg-white p-4">
+      <h3 class="axm-display uppercase tracking-wide text-sm text-[#1F5FA8] mb-3">Build Summary</h3>
+      ${body}
+    </div>
+  `;
+}
+
+function computeScore() {
+  const points = Array.from(state.selectedOptions).reduce((sum, id) => sum + (OPTION_BY_ID[id]?.weight || 0), 0);
+  return Math.min(100, Math.round((points / MAX_POINTS) * 100));
+}
+
+function leadFormHTML() {
+  const hasAny = state.selectedOptions.size > 0;
+  const canSubmit = state.lead.name.trim() && state.lead.email.trim() && hasAny;
+
+  return `
+    <form id="lead-form" class="border border-[#DCE3EC] rounded-lg bg-white p-4 space-y-3">
+      <h3 class="axm-display uppercase tracking-wide text-sm text-[#1F5FA8] mb-1">Request Custom Report</h3>
+
+      <div>
+        <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Name</label>
+        <input type="text" data-field="name" value="${state.lead.name}" placeholder="Your name"
+          class="w-full mt-1 bg-[#F4F6F9] border border-[#DCE3EC] rounded-md px-3 py-2 text-sm text-[#14213D] focus:outline-none focus:border-[#1F5FA8]" />
+      </div>
+      <div>
+        <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Email</label>
+        <input type="email" data-field="email" value="${state.lead.email}" placeholder="you@example.com"
+          class="w-full mt-1 bg-[#F4F6F9] border border-[#DCE3EC] rounded-md px-3 py-2 text-sm text-[#14213D] focus:outline-none focus:border-[#1F5FA8]" />
+      </div>
+      <div>
+        <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Phone Number</label>
+        <input type="tel" data-field="phone" value="${state.lead.phone}" placeholder="07000 000000"
+          class="w-full mt-1 bg-[#F4F6F9] border border-[#DCE3EC] rounded-md px-3 py-2 text-sm text-[#14213D] focus:outline-none focus:border-[#1F5FA8]" />
+      </div>
+
+      <button type="submit" ${canSubmit ? "" : "disabled"}
+        class="w-full mt-2 rounded-md py-3 flex items-center justify-center gap-2 axm-display uppercase tracking-wide text-sm transition-all
+          ${canSubmit ? "bg-[#C79A3D] text-white hover:bg-[#B78A2F]" : "bg-[#EAEEF3] text-[#8593A8] cursor-not-allowed"}">
+        Send Build to WhatsApp ${iconTag("arrow-right", 16)}
+      </button>
+      ${!hasAny ? `<p class="axm-mono text-[10px] text-[#8593A8] text-center">Select at least one item of hardware to continue.</p>` : ""}
+    </form>
+  `;
+}
+
+function successStateHTML(score) {
+  return `
+    <div class="border border-[#DCE3EC] rounded-lg bg-white p-8 flex flex-col items-center text-center">
+      <div class="w-14 h-14 rounded-full bg-[#1F8A5C]/10 border border-[#1F8A5C]/30 flex items-center justify-center text-[#1F8A5C] mb-4">
+        ${iconTag("check-circle-2", 28)}
+      </div>
+      <h3 class="axm-display uppercase tracking-wide text-lg mb-2 text-[#0F2C54]">Request Received</h3>
+      <p class="text-sm text-[#3B4A61] mb-4">
+        Thanks${state.lead.name ? `, ${state.lead.name}` : ""}. Your build is logged at a
+        <span class="text-[#C79A3D] axm-mono font-semibold">${score}%</span> coverage score.
+        Opening WhatsApp with your build pre-filled — send it across and the team will follow up with your custom Price &amp; Risk Report.
+      </p>
+      <div class="flex items-center gap-2 axm-mono text-[11px] text-[#1F5FA8]">
+        ${iconTag("gauge", 14)} Full build also logged to console
+      </div>
+    </div>
+  `;
+}
+
+/* ---------------------------- Brand shell: top bar, header, hero, CTA band, footer ---------------------------- */
+
+function topBarHTML() {
+  const stars = Array.from({ length: 5 }).map(() =>
+    `<i data-lucide="star" style="width:12px;height:12px;fill:#C79A3D;color:#C79A3D"></i>`
+  ).join("");
+  return `
+    <div class="bg-[#0F2C54] text-white">
+      <div class="max-w-6xl mx-auto px-5 py-2 flex items-center justify-between text-[12px]">
+        <div class="flex items-center gap-2">
+          <span class="hidden sm:inline text-[#B9C3D1]">Secure Your Van Today</span>
+          <span class="flex items-center gap-0.5">${stars}</span>
+          <span class="text-[#B9C3D1]">5.0 · 209 Google reviews</span>
+        </div>
+        <a href="tel:+442046368841" class="flex items-center gap-1.5 font-medium hover:text-[#C79A3D] transition-colors">
+          ${iconTag("phone", 13)} Call Now — 020 4636 8841
+        </a>
+      </div>
+    </div>
+  `;
+}
+
+function headerHTML() {
+  return `
+    <header class="border-b border-[#DCE3EC] bg-white">
+      <div class="max-w-6xl mx-auto px-5 py-4 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-md bg-[#0F2C54] flex items-center justify-center text-white">
+          ${iconTag("shield", 20)}
+        </div>
+        <div class="axm-display text-xl tracking-wide uppercase text-[#0F2C54]">VanSecure</div>
+        <div class="ml-auto">
+          <a href="https://wa.me/+447858192831" target="_blank" rel="noopener"
+            class="hidden sm:inline-flex items-center gap-2 axm-display uppercase tracking-wide text-xs px-4 py-2.5 rounded-md bg-[#C79A3D] text-white hover:bg-[#B78A2F] transition-colors">
+            ${iconTag("message-circle", 14)} Get a Quote
+          </a>
+        </div>
+      </div>
+    </header>
+  `;
+}
+
+function heroHTML() {
+  const stats = [
+    { value: "76%", label: "of UK tradespeople have had tools stolen" },
+    { value: "17 yrs", label: "of van security fitting experience" },
+    { value: "Sold Secure GOLD", label: "approved hardware, insurance rated" },
+  ];
+  return `
+    <section class="relative overflow-hidden bg-[#0F2C54]">
+      <div class="absolute inset-0 opacity-[0.06]"
+        style="background-image: repeating-linear-gradient(115deg, #fff 0px, #fff 1px, transparent 1px, transparent 60px);"></div>
+      <div class="relative max-w-6xl mx-auto px-5 pt-14 pb-10">
+        <div class="axm-mono text-[11px] tracking-[0.25em] text-[#C79A3D] uppercase mb-3">Bespoke Security, Configured By You</div>
+        <h1 class="axm-display text-3xl sm:text-4xl text-white leading-tight max-w-2xl mb-4">
+          Build Your Van's Security Setup, See Your Coverage Score
+        </h1>
+        <p class="text-[#B9C3D1] max-w-xl mb-8 text-sm sm:text-base">
+          Select locks, shields, dash cams and trackers for every panel of your van.
+          We'll turn your build into a tailored Price &amp; Risk Report — no off-the-shelf kits, no guesswork.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl">
+          ${stats.map((s) => `
+            <div class="border border-white/15 rounded-lg px-4 py-3 bg-white/5">
+              <div class="axm-display text-xl text-[#C79A3D]">${s.value}</div>
+              <div class="text-[12px] text-[#B9C3D1] mt-0.5">${s.label}</div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function ctaBandHTML() {
+  return `
+    <section class="bg-[#1F5FA8]">
+      <div class="max-w-6xl mx-auto px-5 py-10 flex flex-col sm:flex-row items-center justify-between gap-5">
+        <div class="text-center sm:text-left">
+          <div class="axm-display text-white text-xl uppercase tracking-wide">Prefer To Talk It Through First?</div>
+          <div class="text-[#DCE9F7] text-sm mt-1">Our mobile team fits across the South East — get a tailored quote today.</div>
+        </div>
+        <a href="https://wa.me/+447858192831" target="_blank" rel="noopener"
+          class="flex-shrink-0 flex items-center gap-2 axm-display uppercase tracking-wide text-sm px-6 py-3 rounded-md bg-[#C79A3D] text-white hover:bg-[#B78A2F] transition-colors">
+          ${iconTag("message-circle", 16)} WhatsApp Us
+        </a>
+      </div>
+    </section>
+  `;
+}
+
+function footerHTML() {
+  return `
+    <footer class="bg-[#0F2C54] text-[#B9C3D1]">
+      <div class="max-w-6xl mx-auto px-5 py-10 grid grid-cols-1 sm:grid-cols-3 gap-8 text-sm">
+        <div>
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-7 h-7 rounded bg-white/10 flex items-center justify-center text-white">${iconTag("shield", 14)}</div>
+            <div class="axm-display text-white uppercase tracking-wide text-sm">VanSecure</div>
+          </div>
+          <p class="text-[#8FA3C2] text-[13px] leading-relaxed">
+            VanSecure, Unit 1, East Warren Stables,<br/>Main Road, Sundridge, Sevenoaks, Kent, TN14 6EE
+          </p>
+        </div>
+        <div>
+          <div class="axm-mono text-[11px] tracking-[0.2em] text-white uppercase mb-3">Services</div>
+          <ul class="space-y-1.5 text-[13px] text-[#8FA3C2]">
+            <li>Stop Tool Theft</li>
+            <li>Stop Van Theft</li>
+            <li>Monitor Your Van</li>
+            <li>Custom Projects</li>
+          </ul>
+        </div>
+        <div>
+          <div class="axm-mono text-[11px] tracking-[0.2em] text-white uppercase mb-3">Get In Touch</div>
+          <div class="flex items-center gap-2 text-[13px] mb-2">${iconTag("phone", 13)} 020 4636 8841</div>
+          <a href="https://wa.me/+447858192831" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-[13px] text-[#C79A3D] hover:text-white transition-colors">
+            ${iconTag("message-circle", 13)} Message on WhatsApp
+          </a>
+        </div>
+      </div>
+      <div class="border-t border-white/10">
+        <div class="max-w-6xl mx-auto px-5 py-4 text-[12px] text-[#8FA3C2]">
+          Copyright VanSecure © 2026. All rights reserved.
+        </div>
+      </div>
+    </footer>
+  `;
+}
+
+/* ---------------------------- Main render ---------------------------- */
+
+function render() {
+  const score = computeScore();
+
+  document.getElementById("app").innerHTML = `
+    ${topBarHTML()}
+    ${headerHTML()}
+    ${heroHTML()}
+
+    <main class="max-w-6xl mx-auto px-5 py-8 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
+      <div class="space-y-6">
+        ${vehicleDetailsHTML()}
+        <section>
+          <h2 class="axm-display uppercase tracking-wide text-sm text-[#1F5FA8] mb-3">Security Hardware</h2>
+          <div class="space-y-2.5">
+            ${SECTIONS.map(accordionSectionHTML).join("")}
+          </div>
+        </section>
+        <section class="border border-[#DCE3EC] rounded-lg bg-white p-4">
+          <h2 class="axm-display uppercase tracking-wide text-sm text-[#1F5FA8] mb-3">Other Work Required</h2>
+          <textarea id="other-work" rows="4" placeholder="Anything else you'd like fitted or assessed..."
+            class="w-full bg-[#F4F6F9] border border-[#DCE3EC] rounded-md px-3 py-2.5 text-sm text-[#14213D] placeholder-[#8593A8] focus:outline-none focus:border-[#1F5FA8] resize-none">${state.otherWork}</textarea>
+        </section>
+      </div>
+
+      <div class="lg:sticky lg:top-6 self-start space-y-4">
+        ${state.submitted ? successStateHTML(score) : `
+          <div class="border border-[#DCE3EC] rounded-lg bg-white p-5">${gaugeSVG(score)}</div>
+          ${summarySection()}
+          ${leadFormHTML()}
+        `}
+      </div>
+    </main>
+
+    ${ctaBandHTML()}
+    ${footerHTML()}
+  `;
+
+  lucide.createIcons();
+  attachListeners();
+}
+
+/* ---------------------------- Event handling ---------------------------- */
+
+function attachListeners() {
+  document.querySelectorAll('[data-action="toggle-section"]').forEach((el) => {
+    el.addEventListener("click", () => {
+      const id = el.dataset.section;
+      state.openSection = state.openSection === id ? null : id;
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-action="toggle-spec"]').forEach((el) => {
+    el.addEventListener("click", () => {
+      const id = el.dataset.spec;
+      state.vehicleSpec[id] = !state.vehicleSpec[id];
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-action="toggle-option"]').forEach((el) => {
+    el.addEventListener("click", () => {
+      const optionId = el.dataset.option;
+      const sectionId = el.dataset.section;
+      const section = SECTIONS.find((s) => s.id === sectionId);
+      if (section.type === "single") {
+        section.groups.flatMap((g) => g.options).forEach((o) => state.selectedOptions.delete(o.id));
+        if (!state.selectedOptions.has(optionId)) state.selectedOptions.add(optionId);
+        else state.selectedOptions.delete(optionId);
+      } else {
+        if (state.selectedOptions.has(optionId)) state.selectedOptions.delete(optionId);
+        else state.selectedOptions.add(optionId);
+      }
+      render();
+    });
+  });
+
+  const otherWorkEl = document.getElementById("other-work");
+  if (otherWorkEl) {
+    otherWorkEl.addEventListener("input", (e) => {
+      state.otherWork = e.target.value;
+    });
+  }
+
+  document.querySelectorAll("[data-field]").forEach((el) => {
+    el.addEventListener("input", (e) => {
+      state.lead[el.dataset.field] = e.target.value;
+      const submitBtn = document.querySelector('#lead-form button[type="submit"]');
+      const hasAny = state.selectedOptions.size > 0;
+      const canSubmit = state.lead.name.trim() && state.lead.email.trim() && hasAny;
+      if (submitBtn) submitBtn.disabled = !canSubmit;
+    });
+  });
+
+  const form = document.getElementById("lead-form");
+  if (form) {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const hasAny = state.selectedOptions.size > 0;
+      const canSubmit = state.lead.name.trim() && state.lead.email.trim() && hasAny;
+      if (!canSubmit) return;
+
+      const score = computeScore();
+      const summaryBySection = {};
+      Array.from(state.selectedOptions).forEach((id) => {
+        const opt = OPTION_BY_ID[id];
+        if (!opt) return;
+        if (!summaryBySection[opt.sectionTitle]) summaryBySection[opt.sectionTitle] = [];
+        summaryBySection[opt.sectionTitle].push(opt.name);
+      });
+
+      const payload = {
+        vehicleSpec: state.vehicleSpec,
+        selections: Array.from(state.selectedOptions).map((id) => {
+          const o = OPTION_BY_ID[id];
+          return { id: o.id, name: o.name, section: o.sectionTitle, weight: o.weight };
+        }),
+        otherWork: state.otherWork,
+        coverageScore: score,
+        lead: state.lead,
+        submittedAt: new Date().toISOString(),
+      };
+      console.log("VanSecure configurator submission:", JSON.stringify(payload, null, 2));
+
+      state.submitted = true;
+      render();
+
+      const lines = [
+        `Hi VanSecure, I've just built a security spec online — ${score}% coverage.`,
+        "",
+        `Name: ${state.lead.name}`,
+        state.lead.phone ? `Phone: ${state.lead.phone}` : null,
+        state.lead.email ? `Email: ${state.lead.email}` : null,
+        "",
+        "Selected hardware:",
+        ...Object.entries(summaryBySection).flatMap(([section, items]) => [
+          `${section}:`,
+          ...items.map((name) => `- ${name}`),
+        ]),
+        state.otherWork.trim() ? "" : null,
+        state.otherWork.trim() ? `Other work: ${state.otherWork.trim()}` : null,
+      ].filter(Boolean);
+
+      const message = lines.join("\n");
+      const whatsappUrl = `https://wa.me/+447858192831?text=${encodeURIComponent(message)}`;
+      window.location.href = whatsappUrl;
+    });
+  }
+}
+
+render();
+</script>
+</body>
+</html>
