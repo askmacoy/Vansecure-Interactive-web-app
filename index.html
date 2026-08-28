@@ -3,15 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>VanSecure Configurator</title>
+<title>VanSecure — Get Your Free Risk Score</title>
 
-<!-- Tailwind (CDN build, no bundler needed) -->
 <script src="https://cdn.tailwindcss.com"></script>
-
-<!-- Icons -->
 <script src="https://unpkg.com/lucide@latest"></script>
 
-<!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
@@ -21,613 +17,663 @@
   .axm-mono { font-family: 'IBM Plex Mono', monospace; }
 </style>
 </head>
-<body class="bg-white text-[#14213D]">
+<body class="bg-[#F4F6F9] text-[#14213D]">
 
 <div id="app"></div>
 
 <script>
-/* ------------------------------------------------------------------ */
-/* VanSecure brand tokens (matched to vansecure.co.uk's live site)     */
-/*  bg: #FFFFFF   panel: #F4F6F9   panel-2: #EAEEF3  border: #DCE3EC   */
-/*  navy (primary): #0F2C54   blue (accent): #1F5FA8                   */
-/*  gold (Sold Secure GOLD tier / CTA): #C79A3D                        */
-/*  text: #14213D   text-dim: #5B6B82   success: #1F8A5C                */
-/* ------------------------------------------------------------------ */
+/* ==================================================================== */
+/* VanSecure — 4-Step Risk Profile Quiz (FB/IG ad landing funnel)        */
+/* Direction per Ben's brief: replaces the hardware configurator with a  */
+/* short questionnaire that profiles the customer's worries + wants,    */
+/* then shows a gamified Current vs Possible risk score before handing  */
+/* off to a callback / quote booking form.                              */
+/* ==================================================================== */
 
-/* ---------------------- Data: hardware catalogue ---------------------- */
+/* Brand tokens: bg #F4F6F9  panel #FFFFFF  border #DCE3EC              */
+/* navy #0F2C54  blue #1F5FA8  gold #C79A3D  success #1F8A5C            */
 
-const SECTIONS = [
-  {
-    id: "ns_door", title: "NS Sliding Door", sub: "Nearside", icon: "door-open", type: "multi",
-    groups: [
-      { label: "Deadlocks", options: [
-        { id: "ns_dl_gold_high", name: "Sold Secure GOLD Hook (High)", weight: 10 },
-        { id: "ns_dl_gold_low", name: "Sold Secure GOLD Hook (Low)", weight: 10 },
-        { id: "ns_dl_stronghold", name: "STRONGHOLD Reinforced Hook (High)", weight: 10 },
-      ]},
-      { label: "Shields", options: [
-        { id: "ns_sh_silver", name: "External Latch (Silver)", weight: 6 },
-        { id: "ns_sh_black", name: "External Latch (Black)", weight: 6 },
-        { id: "ns_sh_painted", name: "External Latch (Painted)", weight: 6 },
-        { id: "ns_sh_internal", name: "Internal Latch Shield", weight: 6 },
-      ]},
-      { label: "Extras", options: [
-        { id: "ns_ex_antipeel", name: "Anti Peel Bracket", weight: 6 },
-      ]},
-    ],
-  },
-  {
-    id: "os_door", title: "OS Sliding Door", sub: "Offside", icon: "door-open", type: "multi",
-    groups: [
-      { label: "Deadlocks", options: [
-        { id: "os_dl_gold_high", name: "Sold Secure GOLD Hook (High)", weight: 10 },
-        { id: "os_dl_gold_low", name: "Sold Secure GOLD Hook (Low)", weight: 10 },
-        { id: "os_dl_stronghold", name: "STRONGHOLD Reinforced Hook (High)", weight: 10 },
-      ]},
-      { label: "Shields", options: [
-        { id: "os_sh_silver", name: "External Latch (Silver)", weight: 6 },
-        { id: "os_sh_black", name: "External Latch (Black)", weight: 6 },
-        { id: "os_sh_painted", name: "External Latch (Painted)", weight: 6 },
-        { id: "os_sh_internal", name: "Internal Latch Shield", weight: 6 },
-      ]},
-      { label: "Extras", options: [
-        { id: "os_ex_antipeel", name: "Anti Peel Bracket", weight: 6 },
-      ]},
-    ],
-  },
-  {
-    id: "rear_doors", title: "Rear Barn Doors", sub: "Load compartment", icon: "door-closed", type: "multi",
-    groups: [
-      { label: "Deadlocks", options: [
-        { id: "rd_dl_gold_high", name: "Sold Secure GOLD Hook (High)", weight: 10 },
-        { id: "rd_dl_gold_low", name: "Sold Secure GOLD Hook (Low)", weight: 10 },
-        { id: "rd_dl_stronghold", name: "STRONGHOLD Reinforced Hook (High)", weight: 10 },
-      ]},
-      { label: "Shields", options: [
-        { id: "rd_sh_silver", name: "External Latch (Silver)", weight: 6 },
-        { id: "rd_sh_black", name: "External Latch (Black)", weight: 6 },
-        { id: "rd_sh_painted", name: "External Latch (Painted)", weight: 6 },
-        { id: "rd_sh_internal", name: "Internal Latch Shield", weight: 6 },
-      ]},
-    ],
-  },
-  {
-    id: "drivers_cab", title: "Driver's Cab Door", sub: "Front, nearside/offside", icon: "car", type: "multi",
-    groups: [
-      { label: "Deadlocks", options: [
-        { id: "dc_dl_straight", name: "Sold Secure GOLD Straight Deadlock", weight: 10 },
-        { id: "dc_dl_hook", name: "Sold Secure GOLD Hook Deadlock", weight: 10 },
-      ]},
-      { label: "Extras", options: [
-        { id: "dc_ex_loomguard", name: "Loom Guard", weight: 5 },
-        { id: "dc_ex_replock", name: "Replock (Drivers side only)", weight: 8 },
-      ]},
-    ],
-  },
-  {
-    id: "passenger_cab", title: "Passenger Cab Door", sub: "Front", icon: "car", type: "multi",
-    groups: [
-      { label: "Deadlocks", options: [
-        { id: "pc_dl_straight", name: "Sold Secure GOLD Straight Deadlock", weight: 10 },
-        { id: "pc_dl_hook", name: "Sold Secure GOLD Hook Deadlock", weight: 10 },
-      ]},
-      { label: "Extras", options: [
-        { id: "pc_ex_loomguard", name: "Loom Guard", weight: 5 },
-      ]},
-    ],
-  },
-  {
-    id: "tailgate", title: "Tailgate", sub: "Rear lift-up access", icon: "lock", type: "multi",
-    groups: [
-      { label: "Deadlocks", options: [
-        { id: "tg_dl_pair", name: "Sold Secure GOLD Approved Hook Deadlocks x2", weight: 14 },
-      ]},
-    ],
-  },
-  {
-    id: "dashcams", title: "Dash Cams", sub: "Choose one", icon: "video", type: "single",
-    groups: [
-      { label: "Dash Cams", options: [
-        { id: "dcam_ra_front", name: "Road Angel — Front Only", weight: 10 },
-        { id: "dcam_ra_fr", name: "Road Angel — Front and Rear", weight: 14 },
-        { id: "dcam_vw_front", name: "VehicleWatch — Front + Subscription", weight: 10 },
-        { id: "dcam_vw_fr", name: "VehicleWatch — Front + Rear + Subscription", weight: 14 },
-      ]},
-    ],
-  },
-  {
-    id: "immobiliser", title: "Immobiliser", sub: "Choose one", icon: "shield-alert", type: "single",
-    groups: [
-      { label: "Immobiliser", options: [
-        { id: "immo_scorpion", name: "Scorpion X", weight: 22 },
-      ]},
-    ],
-  },
-  {
-    id: "trackers", title: "Trackers", sub: "Choose one", icon: "map-pin", type: "single",
-    groups: [
-      { label: "Trackers", options: [
-        { id: "trk_vehicle", name: "Vehicle Only", weight: 12 },
-        { id: "trk_v5", name: "Vehicle + 5 Tool Locators", weight: 18 },
-        { id: "trk_v10", name: "Vehicle + 10 Tool Locators", weight: 24 },
-      ]},
-    ],
-  },
+/* ---------------------- Step 1 data: Make / Model / Year ---------------------- */
+
+const MAKE_MODELS = {
+  "Ford": ["Transit", "Transit Custom", "Transit Connect", "Transit Courier"],
+  "Mercedes-Benz": ["Sprinter", "Vito", "Citan"],
+  "Volkswagen": ["Transporter", "Caddy", "Crafter"],
+  "Vauxhall": ["Vivaro", "Combo", "Movano"],
+  "Renault": ["Trafic", "Master", "Kangoo"],
+  "Peugeot": ["Boxer", "Expert", "Partner"],
+  "Citroën": ["Relay", "Berlingo", "Dispatch"],
+  "Toyota": ["Proace", "Proace City"],
+  "Nissan": ["Primastar", "NV300", "Townstar"],
+  "Other / Not Listed": ["Other"],
+};
+const MAKES = Object.keys(MAKE_MODELS);
+const YEARS = Array.from({ length: 2026 - 2000 + 1 }, (_, i) => 2026 - i);
+
+const VAN_USES = [
+  { id: "tradesperson", label: "Tradesperson" },
+  { id: "campervan", label: "Campervan" },
+  { id: "deliveries", label: "Deliveries" },
+  { id: "fleet", label: "Fleet of Vans" },
 ];
 
-const ALL_OPTIONS = SECTIONS.flatMap((section) =>
-  section.groups.flatMap((group) =>
-    group.options.map((opt) => ({
-      ...opt,
-      sectionId: section.id,
-      sectionTitle: section.title,
-      sectionType: section.type,
-    }))
-  )
-);
-const OPTION_BY_ID = Object.fromEntries(ALL_OPTIONS.map((o) => [o.id, o]));
+/* ---------------------- Step 2 data ---------------------- */
 
-const MAX_POINTS = SECTIONS.reduce((total, section) => {
-  const opts = section.groups.flatMap((g) => g.options);
-  if (section.type === "multi") return total + opts.reduce((s, o) => s + o.weight, 0);
-  return total + Math.max(...opts.map((o) => o.weight));
-}, 0);
-
-const VEHICLE_SPECS = [
-  { id: "highRoof", label: "High roof van" },
-  { id: "existingLocks", label: "Existing aftermarket locks or plates fitted" },
-  { id: "hasWindows", label: "Windows fitted in side or back doors" },
-  { id: "hasRacking", label: "Racking or equipment fixed inside the sliding door" },
+const STOLEN_OPTIONS = [
+  { id: "yes", label: "Yes" },
+  { id: "no", label: "No" },
+  { id: "attempted", label: "Thieves attempted but didn't get in" },
 ];
 
-/* ---------------------------- App state ---------------------------- */
+const WORRIES = [
+  { id: "losing_tools", label: "Losing tools" },
+  { id: "van_stolen", label: "Van(s) being stolen" },
+  { id: "liability", label: "Having an accident and not being able to prove you weren't at fault" },
+  { id: "staff_visibility", label: "Not knowing what your staff are doing in your vans" },
+];
+
+/* ---------------------- Step 3 data ---------------------- */
+
+const EXISTING_UPGRADES = [
+  { id: "deadlocks", label: "Deadlocks", category: "locking" },
+  { id: "shields", label: "Door Shields / Plates", category: "shields" },
+  { id: "dashcam", label: "Dash Cam", category: "dashcam" },
+  { id: "tracker", label: "Tracker", category: "tracking" },
+];
+
+const INTERESTED_UPGRADES = [
+  { id: "hook_locks", label: "Mechanical Hook Locks", category: "locking" },
+  { id: "electronic_deadbolts", label: "Electronic Deadbolts", category: "locking" },
+  { id: "external_shields", label: "External Door Shields", category: "shields" },
+  { id: "internal_shields", label: "Hidden Internal Door Shields", category: "shields" },
+  { id: "dashcams", label: "Dash Cams", category: "dashcam" },
+  { id: "tracking", label: "Tracking", category: "tracking" },
+];
+
+const BUDGETS = [
+  { id: "b1", label: "£250 – £500 +VAT" },
+  { id: "b2", label: "£501 – £750 +VAT" },
+  { id: "b3", label: "£751 – £999 +VAT" },
+  { id: "unsure", label: "Unsure — I need more information" },
+];
+
+/* Score weights — total 100 across categories */
+const CATEGORY_WEIGHTS = { locking: 30, shields: 25, dashcam: 20, tracking: 20, app: 5 };
+
+/* ---------------------- Lead delivery ---------------------- */
+/*
+ * CRM-AGNOSTIC BY DESIGN: on submit we POST the full lead payload as JSON
+ * to this webhook URL. Almost every CRM (HubSpot, Pipedrive, Zoho,
+ * Salesforce, GoHighLevel, etc.) can receive a webhook either natively or
+ * via a one-step Zapier/Make "Catch Webhook" trigger that creates/updates
+ * a contact — so this doesn't need to change no matter which CRM is
+ * confirmed. Just drop the URL in below once it's available.
+ *
+ * Leave blank ("") until then — the funnel still works fully without it
+ * (console logging + WhatsApp handoff still happen), it just means no
+ * lead reaches the CRM yet.
+ */
+const LEAD_WEBHOOK_URL = ""; // e.g. "https://hooks.zapier.com/hooks/catch/xxxxx/xxxxx/"
+
+function sendLeadToWebhook(payload) {
+  if (!LEAD_WEBHOOK_URL) return;
+  fetch(LEAD_WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).catch((err) => {
+    // Never block the customer's flow on this — just log it for us to notice.
+    console.error("VanSecure lead webhook failed:", err);
+  });
+}
+
+/* ---------------------- App state ---------------------- */
 
 const state = {
-  vehicleSpec: { highRoof: false, existingLocks: false, hasWindows: false, hasRacking: false },
-  selectedOptions: new Set(),
-  openSection: SECTIONS[0].id,
-  otherWork: "",
-  lead: { name: "", email: "", phone: "" },
+  step: 1,
+  vanInfo: {
+    mode: "reg", make: "", model: "", year: "", uses: new Set(),
+    regLookupConfirmed: false,
+    registration: "", bodyType: "", wheelbase: "", roofHeight: "", colour: "",
+  },
+  worries: { stolen: "", worryList: new Set() },
+  upgrades: {
+    existing: new Set(),
+    existingOther: "",
+    interested: new Set(),
+    wantsApp: "",
+    budget: "",
+  },
+  contact: { name: "", phone: "", email: "", postcode: "", goodTime: "", consent: false },
   submitted: false,
 };
 
-/* ---------------------------- Gauge math ---------------------------- */
+const STEP_LABELS = ["Your Van", "Risk Profile", "Security Wants", "Your Report"];
+
+/* ---------------------- Scoring ---------------------- */
+
+function computeScores() {
+  const haveCategory = new Set();
+  state.upgrades.existing.forEach((id) => {
+    const item = EXISTING_UPGRADES.find((u) => u.id === id);
+    if (item) haveCategory.add(item.category);
+  });
+
+  const possibleCategory = new Set(haveCategory);
+  state.upgrades.interested.forEach((id) => {
+    const item = INTERESTED_UPGRADES.find((u) => u.id === id);
+    if (item) possibleCategory.add(item.category);
+  });
+  if (state.upgrades.wantsApp === "yes") possibleCategory.add("app");
+
+  let current = 0;
+  let possible = 0;
+  Object.entries(CATEGORY_WEIGHTS).forEach(([cat, weight]) => {
+    if (haveCategory.has(cat)) current += weight;
+    if (possibleCategory.has(cat)) possible += weight;
+  });
+
+  return {
+    current: Math.min(100, current),
+    possible: Math.min(100, Math.max(current, possible)),
+  };
+}
+
+/* ---------------------- Dual gauge ---------------------- */
 
 function polarPoint(cx, cy, r, angleDeg) {
   const rad = (angleDeg * Math.PI) / 180;
   return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
 }
 
-function gaugeSVG(score) {
-  const cx = 110, cy = 108, r = 88, strokeWidth = 14;
+function dualGaugeSVG(current, possible) {
+  const cx = 130, cy = 128, strokeWidth = 16;
+  const rOuter = 104, rInner = 82;
   const angleForPercent = (p) => 180 - (p / 100) * 180;
-  const circumference = Math.PI * r;
-  const dashOffset = circumference * (1 - score / 100);
-  const ticks = [0, 25, 50, 75, 100];
-  const needleAngle = angleForPercent(score);
-  const needleTip = polarPoint(cx, cy, r - 22, needleAngle);
-  const zoneColor = score < 35 ? "#C0483A" : score < 70 ? "#C79A3D" : "#1F8A5C";
 
-  const tickLines = ticks.map((t) => {
+  const arc = (r) => `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
+  const circOuter = Math.PI * rOuter;
+  const circInner = Math.PI * rInner;
+
+  const ticks = [0, 25, 50, 75, 100].map((t) => {
     const a = angleForPercent(t);
-    const inner = polarPoint(cx, cy, r - strokeWidth / 2 - 4, a);
-    const outer = polarPoint(cx, cy, r + strokeWidth / 2 + 4, a);
-    return `<line x1="${inner.x}" y1="${inner.y}" x2="${outer.x}" y2="${outer.y}" stroke="#B9C3D1" stroke-width="2" />`;
+    const inner = polarPoint(cx, cy, rOuter + strokeWidth / 2 + 5, a);
+    const outer = polarPoint(cx, cy, rOuter + strokeWidth / 2 + 12, a);
+    return `<line x1="${inner.x}" y1="${inner.y}" x2="${outer.x}" y2="${outer.y}" stroke="#C7CFDA" stroke-width="2" />`;
   }).join("");
 
   return `
-    <svg viewBox="0 0 220 130" class="w-full max-w-[280px]">
-      <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none" stroke="#E2E7EE" stroke-width="${strokeWidth}" stroke-linecap="round" />
-      <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none" stroke="${zoneColor}" stroke-width="${strokeWidth}" stroke-linecap="round"
-        stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}" style="transition: stroke-dashoffset 500ms ease, stroke 500ms ease" />
-      ${tickLines}
-      <line x1="${cx}" y1="${cy}" x2="${needleTip.x}" y2="${needleTip.y}" stroke="#0F2C54" stroke-width="2.5" stroke-linecap="round" style="transition: all 500ms ease" />
-      <circle cx="${cx}" cy="${cy}" r="5" fill="#0F2C54" />
+    <svg viewBox="0 0 260 150" class="w-full max-w-[320px]">
+      <!-- possible (outer, gold) -->
+      <path d="${arc(rOuter)}" fill="none" stroke="#F0E4CB" stroke-width="${strokeWidth}" stroke-linecap="round" />
+      <path d="${arc(rOuter)}" fill="none" stroke="#C79A3D" stroke-width="${strokeWidth}" stroke-linecap="round"
+        stroke-dasharray="${circOuter}" stroke-dashoffset="${circOuter * (1 - possible / 100)}"
+        style="transition: stroke-dashoffset 600ms ease" />
+      <!-- current (inner, blue) -->
+      <path d="${arc(rInner)}" fill="none" stroke="#DCE9F7" stroke-width="${strokeWidth}" stroke-linecap="round" />
+      <path d="${arc(rInner)}" fill="none" stroke="#1F5FA8" stroke-width="${strokeWidth}" stroke-linecap="round"
+        stroke-dasharray="${circInner}" stroke-dashoffset="${circInner * (1 - current / 100)}"
+        style="transition: stroke-dashoffset 600ms ease" />
+      ${ticks}
     </svg>
-    <div class="-mt-6 flex flex-col items-center">
-      <span class="axm-mono text-4xl font-semibold tracking-tight" style="color:${zoneColor}">
-        ${score}<span class="text-lg align-top">%</span>
-      </span>
-      <span class="axm-mono text-[10px] tracking-[0.25em] text-[#5B6B82] mt-1">COVERAGE SCORE</span>
-    </div>
   `;
 }
 
-/* ---------------------------- Render helpers ---------------------------- */
+/* ---------------------- Shared UI helpers ---------------------- */
 
-function iconTag(name, size, cls, extra) {
-  return `<i data-lucide="${name}" style="width:${size}px;height:${size}px" class="${cls || ''}" ${extra || ''}></i>`;
+function iconTag(name, size, cls) {
+  return `<i data-lucide="${name}" style="width:${size}px;height:${size}px" class="${cls || ''}"></i>`;
 }
 
-function optionCardHTML(opt, section) {
-  const selected = state.selectedOptions.has(opt.id);
-  const shape = section.type === "single" ? "rounded-full" : "rounded";
+function selectCard({ selected, label, shape, onAttr }) {
   return `
-    <button type="button" data-action="toggle-option" data-option="${opt.id}" data-section="${section.id}"
-      class="w-full text-left rounded-md border px-3 py-2.5 flex items-center gap-3 transition-all
+    <button type="button" ${onAttr}
+      class="w-full text-left rounded-md border px-3.5 py-3 flex items-center gap-3 transition-all
         ${selected ? "bg-[#EAF1FA] border-[#1F5FA8] shadow-[0_0_0_1px_rgba(31,95,168,0.25)]" : "bg-white border-[#DCE3EC] hover:border-[#B9C3D1]"}">
       <span class="flex-shrink-0 w-4 h-4 flex items-center justify-center border transition-colors ${shape}
         ${selected ? "bg-[#1F5FA8] border-[#1F5FA8]" : "border-[#B9C3D1]"}">
         ${selected ? iconTag("check", 11, "text-white") : ""}
       </span>
-      <span class="text-sm ${selected ? "text-[#0F2C54] font-medium" : "text-[#3B4A61]"}">${opt.name}</span>
+      <span class="text-sm ${selected ? "text-[#0F2C54] font-medium" : "text-[#3B4A61]"}">${label}</span>
     </button>
   `;
 }
 
-function accordionSectionHTML(section) {
-  const isOpen = state.openSection === section.id;
-  const selectedCount = section.groups.flatMap((g) => g.options).filter((o) => state.selectedOptions.has(o.id)).length;
-
-  const groupsHTML = section.groups.map((group) => `
-    <div>
-      ${section.groups.length > 1 ? `<div class="axm-mono text-[10px] tracking-[0.2em] text-[#1F5FA8] mb-2 uppercase">${group.label}</div>` : ""}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        ${group.options.map((opt) => optionCardHTML(opt, section)).join("")}
-      </div>
-    </div>
-  `).join("");
-
+function progressHTML() {
   return `
-    <div class="border border-[#DCE3EC] rounded-lg overflow-hidden bg-white shadow-[0_1px_2px_rgba(15,44,84,0.04)]">
-      <button type="button" data-action="toggle-section" data-section="${section.id}"
-        class="w-full flex items-center justify-between px-4 py-3.5 bg-[#F4F6F9] hover:bg-[#EAEEF3] transition-colors">
-        <div class="flex items-center gap-3">
-          <span class="flex-shrink-0 w-8 h-8 rounded-md bg-white border border-[#DCE3EC] flex items-center justify-center text-[#1F5FA8]">
-            ${iconTag(section.icon, 16)}
-          </span>
-          <div class="text-left">
-            <div class="axm-display text-[#0F2C54] text-[15px] tracking-wide uppercase">${section.title}</div>
-            <div class="axm-mono text-[10px] text-[#5B6B82] tracking-wider">${section.sub}</div>
+    <div class="flex items-center gap-2 mb-8">
+      ${STEP_LABELS.map((label, i) => {
+        const stepNum = i + 1;
+        const active = stepNum === state.step;
+        const done = stepNum < state.step;
+        return `
+          <div class="flex-1 flex flex-col items-center gap-1.5">
+            <div class="w-full h-1.5 rounded-full ${done ? "bg-[#1F8A5C]" : active ? "bg-[#1F5FA8]" : "bg-[#DCE3EC]"}"></div>
+            <span class="axm-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-center ${active ? "text-[#0F2C54] font-medium" : "text-[#8593A8]"}">${label}</span>
           </div>
-        </div>
-        <div class="flex items-center gap-3">
-          ${selectedCount > 0 ? `<span class="axm-mono text-[11px] px-2 py-0.5 rounded-full bg-[#1F5FA8]/10 text-[#1F5FA8] border border-[#1F5FA8]/25">${selectedCount} selected</span>` : ""}
-          ${iconTag("chevron-down", 16, `text-[#5B6B82] transition-transform ${isOpen ? "rotate-180" : ""}`)}
-        </div>
-      </button>
-      ${isOpen ? `<div class="px-4 py-4 space-y-4">${groupsHTML}</div>` : ""}
+        `;
+      }).join("")}
     </div>
   `;
 }
 
-function vehicleDetailsHTML() {
+function navButtonsHTML(canNext) {
+  const isLast = state.step === 4;
   return `
-    <section class="border border-[#DCE3EC] rounded-lg bg-white p-4">
-      <h2 class="axm-display uppercase tracking-wide text-sm text-[#1F5FA8] mb-3">Van Details</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        ${VEHICLE_SPECS.map((spec) => {
-          const checked = state.vehicleSpec[spec.id];
-          return `
-            <button type="button" data-action="toggle-spec" data-spec="${spec.id}"
-              class="text-left rounded-md border px-3 py-2.5 flex items-center gap-3 transition-all
-                ${checked ? "bg-[#EAF1FA] border-[#1F5FA8]" : "bg-[#F4F6F9] border-[#DCE3EC] hover:border-[#B9C3D1]"}">
-              <span class="flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center
-                ${checked ? "bg-[#1F5FA8] border-[#1F5FA8]" : "border-[#B9C3D1]"}">
-                ${checked ? iconTag("check", 11, "text-white") : ""}
-              </span>
-              <span class="text-sm text-[#3B4A61]">${spec.label}</span>
-            </button>
-          `;
-        }).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function summarySection() {
-  const map = {};
-  Array.from(state.selectedOptions).forEach((id) => {
-    const opt = OPTION_BY_ID[id];
-    if (!opt) return;
-    if (!map[opt.sectionTitle]) map[opt.sectionTitle] = [];
-    map[opt.sectionTitle].push(opt.name);
-  });
-  const hasAny = state.selectedOptions.size > 0;
-
-  const body = !hasAny
-    ? `<p class="text-sm text-[#8593A8] axm-mono">No hardware selected yet.</p>`
-    : `<div class="space-y-3 max-h-64 overflow-y-auto pr-1">
-        ${Object.entries(map).map(([title, items]) => `
-          <div>
-            <div class="axm-mono text-[10px] tracking-[0.2em] text-[#1F5FA8] uppercase mb-1">${title}</div>
-            <ul class="space-y-1">
-              ${items.map((name) => `
-                <li class="text-[13px] text-[#3B4A61] flex items-start gap-2">
-                  <span class="text-[#1F8A5C] mt-0.5">${iconTag("check", 12)}</span>${name}
-                </li>`).join("")}
-            </ul>
-          </div>`).join("")}
-      </div>`;
-
-  return `
-    <div class="border border-[#DCE3EC] rounded-lg bg-white p-4">
-      <h3 class="axm-display uppercase tracking-wide text-sm text-[#1F5FA8] mb-3">Build Summary</h3>
-      ${body}
+    <div class="flex items-center gap-3 mt-8">
+      ${state.step > 1 ? `
+        <button type="button" data-action="back" class="px-5 py-3 rounded-md border border-[#DCE3EC] text-[#3B4A61] text-sm font-medium hover:border-[#B9C3D1] transition-colors">
+          Back
+        </button>` : ""}
+      ${!isLast ? `
+        <button type="button" data-action="next" ${canNext ? "" : "disabled"}
+          class="flex-1 flex items-center justify-center gap-2 axm-display uppercase tracking-wide text-sm px-6 py-3.5 rounded-md transition-all
+            ${canNext ? "bg-[#0F2C54] text-white hover:bg-[#173A6B]" : "bg-[#EAEEF3] text-[#8593A8] cursor-not-allowed"}">
+          Continue ${iconTag("arrow-right", 16)}
+        </button>` : ""}
     </div>
   `;
 }
 
-function computeScore() {
-  const points = Array.from(state.selectedOptions).reduce((sum, id) => sum + (OPTION_BY_ID[id]?.weight || 0), 0);
-  return Math.min(100, Math.round((points / MAX_POINTS) * 100));
-}
+/* ---------------------- Step 1: Van Info ---------------------- */
 
-function leadFormHTML() {
-  const hasAny = state.selectedOptions.size > 0;
-  const canSubmit = state.lead.name.trim() && state.lead.email.trim() && hasAny;
+function step1HTML() {
+  const { mode, make, model, year, uses, regLookupConfirmed } = state.vanInfo;
+  const models = make ? MAKE_MODELS[make] : [];
+  const hasVanDetails = regLookupConfirmed || (make && model && year);
+  const canNext = hasVanDetails && uses.size > 0;
 
-  return `
-    <form id="lead-form" class="border border-[#DCE3EC] rounded-lg bg-white p-4 space-y-3">
-      <h3 class="axm-display uppercase tracking-wide text-sm text-[#1F5FA8] mb-1">Request Custom Report</h3>
-
-      <div>
-        <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Name</label>
-        <input type="text" data-field="name" value="${state.lead.name}" placeholder="Your name"
-          class="w-full mt-1 bg-[#F4F6F9] border border-[#DCE3EC] rounded-md px-3 py-2 text-sm text-[#14213D] focus:outline-none focus:border-[#1F5FA8]" />
-      </div>
-      <div>
-        <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Email</label>
-        <input type="email" data-field="email" value="${state.lead.email}" placeholder="you@example.com"
-          class="w-full mt-1 bg-[#F4F6F9] border border-[#DCE3EC] rounded-md px-3 py-2 text-sm text-[#14213D] focus:outline-none focus:border-[#1F5FA8]" />
-      </div>
-      <div>
-        <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Phone Number</label>
-        <input type="tel" data-field="phone" value="${state.lead.phone}" placeholder="07000 000000"
-          class="w-full mt-1 bg-[#F4F6F9] border border-[#DCE3EC] rounded-md px-3 py-2 text-sm text-[#14213D] focus:outline-none focus:border-[#1F5FA8]" />
-      </div>
-
-      <button type="submit" ${canSubmit ? "" : "disabled"}
-        class="w-full mt-2 rounded-md py-3 flex items-center justify-center gap-2 axm-display uppercase tracking-wide text-sm transition-all
-          ${canSubmit ? "bg-[#C79A3D] text-white hover:bg-[#B78A2F]" : "bg-[#EAEEF3] text-[#8593A8] cursor-not-allowed"}">
-        Send Build to WhatsApp ${iconTag("arrow-right", 16)}
-      </button>
-      ${!hasAny ? `<p class="axm-mono text-[10px] text-[#8593A8] text-center">Select at least one item of hardware to continue.</p>` : ""}
-    </form>
-  `;
-}
-
-function successStateHTML(score) {
-  return `
-    <div class="border border-[#DCE3EC] rounded-lg bg-white p-8 flex flex-col items-center text-center">
-      <div class="w-14 h-14 rounded-full bg-[#1F8A5C]/10 border border-[#1F8A5C]/30 flex items-center justify-center text-[#1F8A5C] mb-4">
-        ${iconTag("check-circle-2", 28)}
-      </div>
-      <h3 class="axm-display uppercase tracking-wide text-lg mb-2 text-[#0F2C54]">Request Received</h3>
-      <p class="text-sm text-[#3B4A61] mb-4">
-        Thanks${state.lead.name ? `, ${state.lead.name}` : ""}. Your build is logged at a
-        <span class="text-[#C79A3D] axm-mono font-semibold">${score}%</span> coverage score.
-        Opening WhatsApp with your build pre-filled — send it across and the team will follow up with your custom Price &amp; Risk Report.
-      </p>
-      <div class="flex items-center gap-2 axm-mono text-[11px] text-[#1F5FA8]">
-        ${iconTag("gauge", 14)} Full build also logged to console
-      </div>
+  const regPane = `
+    <div class="border border-[#DCE3EC] rounded-lg overflow-hidden bg-[#F4F6F9]">
+      <iframe
+        src="https://vsops.vansecure.co.uk/embed/reg-lookup"
+        width="100%"
+        height="220"
+        frameborder="0"
+        title="VanSecure registration lookup"
+        style="display:block"
+      ></iframe>
     </div>
-  `;
-}
-
-/* ---------------------------- Brand shell: top bar, header, hero, CTA band, footer ---------------------------- */
-
-function topBarHTML() {
-  const stars = Array.from({ length: 5 }).map(() =>
-    `<i data-lucide="star" style="width:12px;height:12px;fill:#C79A3D;color:#C79A3D"></i>`
-  ).join("");
-  return `
-    <div class="bg-[#0F2C54] text-white">
-      <div class="max-w-6xl mx-auto px-5 py-2 flex items-center justify-between text-[12px]">
-        <div class="flex items-center gap-2">
-          <span class="hidden sm:inline text-[#B9C3D1]">Secure Your Van Today</span>
-          <span class="flex items-center gap-0.5">${stars}</span>
-          <span class="text-[#B9C3D1]">5.0 · 209 Google reviews</span>
+    ${regLookupConfirmed ? `
+      <div class="flex items-center justify-between mt-3 border border-[#1F8A5C]/30 bg-[#1F8A5C]/5 rounded-md px-3.5 py-2.5">
+        <div class="flex items-center gap-2 text-sm text-[#0F2C54]">
+          ${iconTag("check-circle-2", 15, "text-[#1F8A5C]")}
+          <span>${year} ${make} ${model} — found</span>
         </div>
-        <a href="tel:+442046368841" class="flex items-center gap-1.5 font-medium hover:text-[#C79A3D] transition-colors">
-          ${iconTag("phone", 13)} Call Now — 020 4636 8841
+        <button type="button" data-action="clear-reg-result" class="text-[12px] text-[#1F5FA8] hover:underline">Not right? Change</button>
+      </div>
+    ` : `
+      <p class="text-[12px] text-[#8593A8] mt-2">Pop your reg in above and we'll fill in your van details automatically.</p>
+    `}
+    <button type="button" data-action="switch-mode" data-id="manual" class="text-[12px] text-[#1F5FA8] hover:underline mt-3">
+      Don't have your reg number? Choose manually instead
+    </button>
+  `;
+
+  const manualPane = `
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div>
+        <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Make</label>
+        <select data-field="make" class="w-full mt-1 bg-white border border-[#DCE3EC] rounded-md px-3 py-2.5 text-sm text-[#14213D] focus:outline-none focus:border-[#1F5FA8]">
+          <option value="">Select make</option>
+          ${MAKES.map((m) => `<option value="${m}" ${make === m ? "selected" : ""}>${m}</option>`).join("")}
+        </select>
+      </div>
+      <div>
+        <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Model</label>
+        <select data-field="model" ${make ? "" : "disabled"} class="w-full mt-1 bg-white border border-[#DCE3EC] rounded-md px-3 py-2.5 text-sm text-[#14213D] focus:outline-none focus:border-[#1F5FA8] disabled:bg-[#F4F6F9] disabled:text-[#B0B8C4]">
+          <option value="">${make ? "Select model" : "Select make first"}</option>
+          ${models.map((m) => `<option value="${m}" ${model === m ? "selected" : ""}>${m}</option>`).join("")}
+        </select>
+      </div>
+      <div>
+        <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Year</label>
+        <select data-field="year" class="w-full mt-1 bg-white border border-[#DCE3EC] rounded-md px-3 py-2.5 text-sm text-[#14213D] focus:outline-none focus:border-[#1F5FA8]">
+          <option value="">Select year</option>
+          ${YEARS.map((y) => `<option value="${y}" ${String(year) === String(y) ? "selected" : ""}>${y}</option>`).join("")}
+        </select>
+      </div>
+    </div>
+    <button type="button" data-action="switch-mode" data-id="reg" class="text-[12px] text-[#1F5FA8] hover:underline mt-3">
+      Got your reg number? Look it up instead
+    </button>
+  `;
+
+  return `
+    <div>
+      <h2 class="axm-display uppercase tracking-wide text-lg text-[#0F2C54] mb-1">Tell Us About Your Van</h2>
+      <p class="text-sm text-[#5B6B82] mb-5">A few quick details so we can tailor your risk score.</p>
+
+      <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase mb-2 block">Your Van</label>
+      ${mode === "reg" ? regPane : manualPane}
+
+      <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase mt-6 block">How do you use your van? (select all that apply)</label>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+        ${VAN_USES.map((u) => selectCard({
+          selected: uses.has(u.id),
+          label: u.label,
+          shape: "rounded",
+          onAttr: `data-action="toggle-use" data-id="${u.id}"`,
+        })).join("")}
+      </div>
+
+      ${navButtonsHTML(canNext)}
+    </div>
+  `;
+}
+
+/* ---------------------- Step 2: Worries ---------------------- */
+
+function step2HTML() {
+  const { stolen, worryList } = state.worries;
+  const canNext = !!stolen;
+
+  return `
+    <div>
+      <h2 class="axm-display uppercase tracking-wide text-lg text-[#0F2C54] mb-1">Your Risk Profile</h2>
+      <p class="text-sm text-[#5B6B82] mb-5">Help us understand what you're up against.</p>
+
+      <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Have you ever had your tools stolen?</label>
+      <div class="grid grid-cols-1 gap-2 mt-2 mb-5">
+        ${STOLEN_OPTIONS.map((o) => selectCard({
+          selected: stolen === o.id,
+          label: o.label,
+          shape: "rounded-full",
+          onAttr: `data-action="set-stolen" data-id="${o.id}"`,
+        })).join("")}
+      </div>
+
+      <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">What worries keep you up at night? (select all that apply)</label>
+      <div class="grid grid-cols-1 gap-2 mt-2">
+        ${WORRIES.map((w) => selectCard({
+          selected: worryList.has(w.id),
+          label: w.label,
+          shape: "rounded",
+          onAttr: `data-action="toggle-worry" data-id="${w.id}"`,
+        })).join("")}
+      </div>
+
+      ${navButtonsHTML(canNext)}
+    </div>
+  `;
+}
+
+/* ---------------------- Step 3: Upgrades & Budget ---------------------- */
+
+function step3HTML() {
+  const { existing, existingOther, interested, wantsApp, budget } = state.upgrades;
+  const canNext = !!budget;
+
+  return `
+    <div>
+      <h2 class="axm-display uppercase tracking-wide text-lg text-[#0F2C54] mb-1">Security Wants</h2>
+      <p class="text-sm text-[#5B6B82] mb-5">What's fitted already, and what you're after.</p>
+
+      <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Do you have any upgrades already?</label>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+        ${EXISTING_UPGRADES.map((u) => selectCard({
+          selected: existing.has(u.id),
+          label: u.label,
+          shape: "rounded",
+          onAttr: `data-action="toggle-existing" data-id="${u.id}"`,
+        })).join("")}
+      </div>
+      <input type="text" data-field="existingOther" value="${existingOther}" placeholder="Other (tell us what)"
+        class="w-full mt-2 bg-white border border-[#DCE3EC] rounded-md px-3 py-2.5 text-sm text-[#14213D] placeholder-[#8593A8] focus:outline-none focus:border-[#1F5FA8]" />
+
+      <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase mt-5 block">What are you interested in fitting?</label>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+        ${INTERESTED_UPGRADES.map((u) => selectCard({
+          selected: interested.has(u.id),
+          label: u.label,
+          shape: "rounded",
+          onAttr: `data-action="toggle-interested" data-id="${u.id}"`,
+        })).join("")}
+      </div>
+
+      <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase mt-5 block">Would you like to monitor your van from an app on your phone?</label>
+      <div class="grid grid-cols-2 gap-2 mt-2 max-w-xs">
+        ${["yes", "no"].map((v) => selectCard({
+          selected: wantsApp === v,
+          label: v === "yes" ? "Yes" : "No",
+          shape: "rounded-full",
+          onAttr: `data-action="set-wants-app" data-id="${v}"`,
+        })).join("")}
+      </div>
+
+      <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase mt-5 block">What is your budget?</label>
+      <div class="grid grid-cols-1 gap-2 mt-2">
+        ${BUDGETS.map((b) => selectCard({
+          selected: budget === b.id,
+          label: b.label,
+          shape: "rounded-full",
+          onAttr: `data-action="set-budget" data-id="${b.id}"`,
+        })).join("")}
+      </div>
+
+      ${navButtonsHTML(canNext)}
+    </div>
+  `;
+}
+
+/* ---------------------- Step 4: Score + Contact ---------------------- */
+
+function step4HTML() {
+  const { current, possible } = computeScores();
+  const gap = possible - current;
+  const { name, phone, email, postcode, goodTime, consent } = state.contact;
+  const canSubmit = name.trim() && phone.trim() && email.trim() && consent;
+
+  if (state.submitted) {
+    return `
+      <div class="flex flex-col items-center text-center py-6">
+        <div class="w-14 h-14 rounded-full bg-[#1F8A5C]/10 border border-[#1F8A5C]/30 flex items-center justify-center text-[#1F8A5C] mb-4">
+          ${iconTag("check-circle-2", 28)}
+        </div>
+        <h3 class="axm-display uppercase tracking-wide text-lg mb-2 text-[#0F2C54]">Your Risk Report Is On Its Way</h3>
+        <p class="text-sm text-[#3B4A61] max-w-sm mb-1">
+          Thanks${name ? `, ${name}` : ""}. Your current protection score is
+          <span class="text-[#1F5FA8] axm-mono font-semibold">${current}%</span> —
+          with a tailored VanSecure setup you could reach
+          <span class="text-[#C79A3D] axm-mono font-semibold">${possible}%</span>.
+        </p>
+        <p class="text-sm text-[#3B4A61] max-w-sm">
+          We'll call you${goodTime ? ` ${goodTime.toLowerCase()}` : ""} to talk through your options and send a no-obligation quote.
+        </p>
+        <a href="https://wa.me/+447858192831" target="_blank" rel="noopener"
+          class="mt-5 inline-flex items-center gap-2 axm-display uppercase tracking-wide text-xs px-5 py-2.5 rounded-md bg-[#C79A3D] text-white hover:bg-[#B78A2F] transition-colors">
+          ${iconTag("message-circle", 14)} Or Message Us Now
         </a>
       </div>
+    `;
+  }
+
+  return `
+    <div>
+      <h2 class="axm-display uppercase tracking-wide text-lg text-[#0F2C54] mb-1">Your Van Security Report</h2>
+      <p class="text-sm text-[#5B6B82] mb-5">Here's where you stand, and what's possible.</p>
+
+      <div class="border border-[#DCE3EC] rounded-lg bg-white p-5 flex flex-col items-center mb-2">
+        ${dualGaugeSVG(current, possible)}
+        <div class="grid grid-cols-2 gap-4 w-full max-w-xs -mt-4">
+          <div class="text-center">
+            <div class="axm-mono text-2xl font-semibold text-[#1F5FA8]">${current}%</div>
+            <div class="axm-mono text-[9px] tracking-[0.2em] text-[#5B6B82] uppercase mt-0.5">Current Score</div>
+          </div>
+          <div class="text-center">
+            <div class="axm-mono text-2xl font-semibold text-[#C79A3D]">${possible}%</div>
+            <div class="axm-mono text-[9px] tracking-[0.2em] text-[#5B6B82] uppercase mt-0.5">Possible Score</div>
+          </div>
+        </div>
+      </div>
+      ${gap > 0 ? `
+        <div class="flex items-center gap-2 justify-center text-[#1F8A5C] text-sm mb-5">
+          ${iconTag("trending-up", 15)} You could close a ${gap}-point gap with a tailored VanSecure setup
+        </div>` : `<div class="mb-5"></div>`}
+
+      <form id="lead-form" class="border border-[#DCE3EC] rounded-lg bg-white p-4 space-y-3">
+        <h3 class="axm-display uppercase tracking-wide text-sm text-[#1F5FA8] mb-1">Get Your Free No-Obligation Quote</h3>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Name</label>
+            <input type="text" data-field="name" value="${name}" placeholder="Your name"
+              class="w-full mt-1 bg-[#F4F6F9] border border-[#DCE3EC] rounded-md px-3 py-2 text-sm text-[#14213D] focus:outline-none focus:border-[#1F5FA8]" />
+          </div>
+          <div>
+            <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Phone Number</label>
+            <input type="tel" data-field="phone" value="${phone}" placeholder="07000 000000"
+              class="w-full mt-1 bg-[#F4F6F9] border border-[#DCE3EC] rounded-md px-3 py-2 text-sm text-[#14213D] focus:outline-none focus:border-[#1F5FA8]" />
+          </div>
+        </div>
+        <div>
+          <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Email</label>
+          <input type="email" data-field="email" value="${email}" placeholder="you@example.com"
+            class="w-full mt-1 bg-[#F4F6F9] border border-[#DCE3EC] rounded-md px-3 py-2 text-sm text-[#14213D] focus:outline-none focus:border-[#1F5FA8]" />
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Postcode</label>
+            <input type="text" data-field="postcode" value="${postcode}" placeholder="e.g. TN14"
+              class="w-full mt-1 bg-[#F4F6F9] border border-[#DCE3EC] rounded-md px-3 py-2 text-sm text-[#14213D] focus:outline-none focus:border-[#1F5FA8]" />
+          </div>
+          <div>
+            <label class="axm-mono text-[10px] tracking-wider text-[#5B6B82] uppercase">Good Time To Call?</label>
+            <select data-field="goodTime" class="w-full mt-1 bg-[#F4F6F9] border border-[#DCE3EC] rounded-md px-3 py-2 text-sm text-[#14213D] focus:outline-none focus:border-[#1F5FA8]">
+              <option value="">Select a time</option>
+              <option value="Morning" ${goodTime === "Morning" ? "selected" : ""}>Morning</option>
+              <option value="Afternoon" ${goodTime === "Afternoon" ? "selected" : ""}>Afternoon</option>
+              <option value="Evening" ${goodTime === "Evening" ? "selected" : ""}>Evening</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="flex items-start gap-2.5 pt-1 cursor-pointer">
+          <input type="checkbox" data-field="consent" ${consent ? "checked" : ""}
+            class="mt-0.5 flex-shrink-0 w-4 h-4 rounded border-[#B9C3D1] text-[#1F5FA8] focus:ring-[#1F5FA8]" />
+          <span class="text-[12px] text-[#5B6B82] leading-snug">
+            I agree to be contacted by VanSecure about my quote, in line with their
+            <a href="https://vansecure.co.uk/privacy-policy/" target="_blank" rel="noopener" class="text-[#1F5FA8] underline hover:no-underline">Privacy Policy</a>.
+          </span>
+        </label>
+
+        <button type="submit" ${canSubmit ? "" : "disabled"}
+          class="w-full mt-2 rounded-md py-3.5 flex items-center justify-center gap-2 axm-display uppercase tracking-wide text-sm transition-all
+            ${canSubmit ? "bg-[#C79A3D] text-white hover:bg-[#B78A2F]" : "bg-[#EAEEF3] text-[#8593A8] cursor-not-allowed"}">
+          Get My Free Risk Report ${iconTag("arrow-right", 16)}
+        </button>
+      </form>
+
+      ${navButtonsHTML(false)}
     </div>
   `;
 }
 
-function headerHTML() {
-  return `
-    <header class="border-b border-[#DCE3EC] bg-white">
-      <div class="max-w-6xl mx-auto px-5 py-4 flex items-center gap-3">
-        <div class="w-10 h-10 rounded-md bg-[#0F2C54] flex items-center justify-center text-white">
-          ${iconTag("shield", 20)}
+/* ---------------------- Main render ---------------------- */
+
+/* ---------------------- Safe icon rendering ---------------------- */
+/* lucide is loaded from a CDN — if it's blocked or slow (ad blockers,
+ * corporate networks, flaky connections all do this in the real world),
+ * calling lucide.createIcons() directly throws and crashes the whole app.
+ * This guards against that and retries once the script actually arrives. */
+let lucideRetryScheduled = false;
+function safeCreateIcons() {
+  if (typeof lucide !== "undefined" && lucide.createIcons) {
+    lucide.createIcons();
+  } else if (!lucideRetryScheduled) {
+    lucideRetryScheduled = true;
+    setTimeout(() => {
+      lucideRetryScheduled = false;
+      if (typeof lucide !== "undefined" && lucide.createIcons) lucide.createIcons();
+    }, 500);
+  }
+}
+
+function render() {
+  document.getElementById("app").innerHTML = `
+    <header class="bg-white border-b border-[#DCE3EC]">
+      <div class="max-w-lg mx-auto px-5 py-3.5 flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-md bg-[#0F2C54] flex items-center justify-center text-white">
+          ${iconTag("shield", 16)}
         </div>
-        <div class="axm-display text-xl tracking-wide uppercase text-[#0F2C54]">VanSecure</div>
-        <div class="ml-auto">
-          <a href="https://wa.me/+447858192831" target="_blank" rel="noopener"
-            class="hidden sm:inline-flex items-center gap-2 axm-display uppercase tracking-wide text-xs px-4 py-2.5 rounded-md bg-[#C79A3D] text-white hover:bg-[#B78A2F] transition-colors">
-            ${iconTag("message-circle", 14)} Get a Quote
-          </a>
+        <div class="axm-display text-base tracking-wide uppercase text-[#0F2C54]">VanSecure</div>
+        <div class="ml-auto flex items-center gap-1 text-[#C79A3D]">
+          ${Array.from({ length: 5 }).map(() => `<i data-lucide="star" style="width:11px;height:11px;fill:#C79A3D;color:#C79A3D"></i>`).join("")}
         </div>
       </div>
     </header>
-  `;
-}
 
-function heroHTML() {
-  const stats = [
-    { value: "76%", label: "of UK tradespeople have had tools stolen" },
-    { value: "17 yrs", label: "of van security fitting experience" },
-    { value: "Sold Secure GOLD", label: "approved hardware, insurance rated" },
-  ];
-  return `
-    <section class="relative overflow-hidden bg-[#0F2C54]">
-      <div class="absolute inset-0 opacity-[0.06]"
-        style="background-image: repeating-linear-gradient(115deg, #fff 0px, #fff 1px, transparent 1px, transparent 60px);"></div>
-      <div class="relative max-w-6xl mx-auto px-5 pt-14 pb-10">
-        <div class="axm-mono text-[11px] tracking-[0.25em] text-[#C79A3D] uppercase mb-3">Bespoke Security, Configured By You</div>
-        <h1 class="axm-display text-3xl sm:text-4xl text-white leading-tight max-w-2xl mb-4">
-          Build Your Van's Security Setup, See Your Coverage Score
-        </h1>
-        <p class="text-[#B9C3D1] max-w-xl mb-8 text-sm sm:text-base">
-          Select locks, shields, dash cams and trackers for every panel of your van.
-          We'll turn your build into a tailored Price &amp; Risk Report — no off-the-shelf kits, no guesswork.
-        </p>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl">
-          ${stats.map((s) => `
-            <div class="border border-white/15 rounded-lg px-4 py-3 bg-white/5">
-              <div class="axm-display text-xl text-[#C79A3D]">${s.value}</div>
-              <div class="text-[12px] text-[#B9C3D1] mt-0.5">${s.label}</div>
-            </div>
-          `).join("")}
-        </div>
+    <main class="max-w-lg mx-auto px-5 py-8">
+      <div class="border border-[#DCE3EC] rounded-xl bg-white p-5 sm:p-7 shadow-[0_1px_3px_rgba(15,44,84,0.06)]">
+        ${progressHTML()}
+        ${state.step === 1 ? step1HTML() : state.step === 2 ? step2HTML() : state.step === 3 ? step3HTML() : step4HTML()}
       </div>
-    </section>
-  `;
-}
-
-function ctaBandHTML() {
-  return `
-    <section class="bg-[#1F5FA8]">
-      <div class="max-w-6xl mx-auto px-5 py-10 flex flex-col sm:flex-row items-center justify-between gap-5">
-        <div class="text-center sm:text-left">
-          <div class="axm-display text-white text-xl uppercase tracking-wide">Prefer To Talk It Through First?</div>
-          <div class="text-[#DCE9F7] text-sm mt-1">Our mobile team fits across the South East — get a tailored quote today.</div>
-        </div>
-        <a href="https://wa.me/+447858192831" target="_blank" rel="noopener"
-          class="flex-shrink-0 flex items-center gap-2 axm-display uppercase tracking-wide text-sm px-6 py-3 rounded-md bg-[#C79A3D] text-white hover:bg-[#B78A2F] transition-colors">
-          ${iconTag("message-circle", 16)} WhatsApp Us
-        </a>
-      </div>
-    </section>
-  `;
-}
-
-function footerHTML() {
-  return `
-    <footer class="bg-[#0F2C54] text-[#B9C3D1]">
-      <div class="max-w-6xl mx-auto px-5 py-10 grid grid-cols-1 sm:grid-cols-3 gap-8 text-sm">
-        <div>
-          <div class="flex items-center gap-2 mb-3">
-            <div class="w-7 h-7 rounded bg-white/10 flex items-center justify-center text-white">${iconTag("shield", 14)}</div>
-            <div class="axm-display text-white uppercase tracking-wide text-sm">VanSecure</div>
-          </div>
-          <p class="text-[#8FA3C2] text-[13px] leading-relaxed">
-            VanSecure, Unit 1, East Warren Stables,<br/>Main Road, Sundridge, Sevenoaks, Kent, TN14 6EE
-          </p>
-        </div>
-        <div>
-          <div class="axm-mono text-[11px] tracking-[0.2em] text-white uppercase mb-3">Services</div>
-          <ul class="space-y-1.5 text-[13px] text-[#8FA3C2]">
-            <li>Stop Tool Theft</li>
-            <li>Stop Van Theft</li>
-            <li>Monitor Your Van</li>
-            <li>Custom Projects</li>
-          </ul>
-        </div>
-        <div>
-          <div class="axm-mono text-[11px] tracking-[0.2em] text-white uppercase mb-3">Get In Touch</div>
-          <div class="flex items-center gap-2 text-[13px] mb-2">${iconTag("phone", 13)} 020 4636 8841</div>
-          <a href="https://wa.me/+447858192831" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-[13px] text-[#C79A3D] hover:text-white transition-colors">
-            ${iconTag("message-circle", 13)} Message on WhatsApp
-          </a>
-        </div>
-      </div>
-      <div class="border-t border-white/10">
-        <div class="max-w-6xl mx-auto px-5 py-4 text-[12px] text-[#8FA3C2]">
-          Copyright VanSecure © 2026. All rights reserved.
-        </div>
-      </div>
-    </footer>
-  `;
-}
-
-/* ---------------------------- Main render ---------------------------- */
-
-function render() {
-  const score = computeScore();
-
-  document.getElementById("app").innerHTML = `
-    ${topBarHTML()}
-    ${headerHTML()}
-    ${heroHTML()}
-
-    <main class="max-w-6xl mx-auto px-5 py-8 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
-      <div class="space-y-6">
-        ${vehicleDetailsHTML()}
-        <section>
-          <h2 class="axm-display uppercase tracking-wide text-sm text-[#1F5FA8] mb-3">Security Hardware</h2>
-          <div class="space-y-2.5">
-            ${SECTIONS.map(accordionSectionHTML).join("")}
-          </div>
-        </section>
-        <section class="border border-[#DCE3EC] rounded-lg bg-white p-4">
-          <h2 class="axm-display uppercase tracking-wide text-sm text-[#1F5FA8] mb-3">Other Work Required</h2>
-          <textarea id="other-work" rows="4" placeholder="Anything else you'd like fitted or assessed..."
-            class="w-full bg-[#F4F6F9] border border-[#DCE3EC] rounded-md px-3 py-2.5 text-sm text-[#14213D] placeholder-[#8593A8] focus:outline-none focus:border-[#1F5FA8] resize-none">${state.otherWork}</textarea>
-        </section>
-      </div>
-
-      <div class="lg:sticky lg:top-6 self-start space-y-4">
-        ${state.submitted ? successStateHTML(score) : `
-          <div class="border border-[#DCE3EC] rounded-lg bg-white p-5">${gaugeSVG(score)}</div>
-          ${summarySection()}
-          ${leadFormHTML()}
-        `}
-      </div>
+      <p class="text-center text-[11px] text-[#8593A8] mt-5">
+        Takes under 2 minutes · No obligation · We'll never share your details
+      </p>
     </main>
 
-    ${ctaBandHTML()}
-    ${footerHTML()}
+    <footer class="text-center py-5 text-[11px] text-[#8593A8]">
+      Copyright VanSecure © 2026. All rights reserved.
+    </footer>
   `;
 
-  lucide.createIcons();
+  safeCreateIcons();
   attachListeners();
 }
 
-/* ---------------------------- Event handling ---------------------------- */
+/* ---------------------- Event handling ---------------------- */
 
 function attachListeners() {
-  document.querySelectorAll('[data-action="toggle-section"]').forEach((el) => {
-    el.addEventListener("click", () => {
-      const id = el.dataset.section;
-      state.openSection = state.openSection === id ? null : id;
-      render();
-    });
-  });
+  const app = document.getElementById("app");
 
-  document.querySelectorAll('[data-action="toggle-spec"]').forEach((el) => {
+  app.querySelectorAll("[data-action]").forEach((el) => {
     el.addEventListener("click", () => {
-      const id = el.dataset.spec;
-      state.vehicleSpec[id] = !state.vehicleSpec[id];
-      render();
-    });
-  });
+      const action = el.dataset.action;
+      const id = el.dataset.id;
 
-  document.querySelectorAll('[data-action="toggle-option"]').forEach((el) => {
-    el.addEventListener("click", () => {
-      const optionId = el.dataset.option;
-      const sectionId = el.dataset.section;
-      const section = SECTIONS.find((s) => s.id === sectionId);
-      if (section.type === "single") {
-        section.groups.flatMap((g) => g.options).forEach((o) => state.selectedOptions.delete(o.id));
-        if (!state.selectedOptions.has(optionId)) state.selectedOptions.add(optionId);
-        else state.selectedOptions.delete(optionId);
-      } else {
-        if (state.selectedOptions.has(optionId)) state.selectedOptions.delete(optionId);
-        else state.selectedOptions.add(optionId);
+      if (action === "next") { state.step = Math.min(4, state.step + 1); window.scrollTo(0, 0); render(); return; }
+      if (action === "back") { state.step = Math.max(1, state.step - 1); window.scrollTo(0, 0); render(); return; }
+
+      if (action === "toggle-use") toggleSetItem(state.vanInfo.uses, id);
+      if (action === "switch-mode") {
+        state.vanInfo.mode = id;
+        if (id === "reg") clearRegResult();
       }
+      if (action === "clear-reg-result") clearRegResult();
+      if (action === "set-stolen") state.worries.stolen = id;
+      if (action === "toggle-worry") toggleSetItem(state.worries.worryList, id);
+      if (action === "toggle-existing") toggleSetItem(state.upgrades.existing, id);
+      if (action === "toggle-interested") toggleSetItem(state.upgrades.interested, id);
+      if (action === "set-wants-app") state.upgrades.wantsApp = id;
+      if (action === "set-budget") state.upgrades.budget = id;
+
       render();
     });
   });
 
-  const otherWorkEl = document.getElementById("other-work");
-  if (otherWorkEl) {
-    otherWorkEl.addEventListener("input", (e) => {
-      state.otherWork = e.target.value;
+  app.querySelectorAll("[data-field]").forEach((el) => {
+    el.addEventListener("change", (e) => {
+      const field = el.dataset.field;
+      const val = e.target.value;
+      if (field === "make") { state.vanInfo.make = val; state.vanInfo.model = ""; render(); return; }
+      if (field === "model") { state.vanInfo.model = val; render(); return; }
+      if (field === "year") { state.vanInfo.year = val; render(); return; }
+      if (field === "existingOther") { state.upgrades.existingOther = val; return; }
+      if (field === "name") { state.contact.name = val; }
+      if (field === "phone") { state.contact.phone = val; }
+      if (field === "email") { state.contact.email = val; }
+      if (field === "postcode") { state.contact.postcode = val; }
+      if (field === "goodTime") { state.contact.goodTime = val; }
+      if (field === "consent") { state.contact.consent = e.target.checked; }
+      updateSubmitState();
     });
-  }
-
-  document.querySelectorAll("[data-field]").forEach((el) => {
     el.addEventListener("input", (e) => {
-      state.lead[el.dataset.field] = e.target.value;
-      const submitBtn = document.querySelector('#lead-form button[type="submit"]');
-      const hasAny = state.selectedOptions.size > 0;
-      const canSubmit = state.lead.name.trim() && state.lead.email.trim() && hasAny;
-      if (submitBtn) submitBtn.disabled = !canSubmit;
+      const field = el.dataset.field;
+      if (["name", "phone", "email", "postcode"].includes(field)) {
+        state.contact[field] = e.target.value;
+        updateSubmitState();
+      }
     });
   });
 
@@ -635,57 +681,98 @@ function attachListeners() {
   if (form) {
     form.addEventListener("submit", (e) => {
       e.preventDefault();
-      const hasAny = state.selectedOptions.size > 0;
-      const canSubmit = state.lead.name.trim() && state.lead.email.trim() && hasAny;
-      if (!canSubmit) return;
+      const { name, phone, email, consent } = state.contact;
+      if (!(name.trim() && phone.trim() && email.trim() && consent)) return;
 
-      const score = computeScore();
-      const summaryBySection = {};
-      Array.from(state.selectedOptions).forEach((id) => {
-        const opt = OPTION_BY_ID[id];
-        if (!opt) return;
-        if (!summaryBySection[opt.sectionTitle]) summaryBySection[opt.sectionTitle] = [];
-        summaryBySection[opt.sectionTitle].push(opt.name);
-      });
-
+      const { current, possible } = computeScores();
       const payload = {
-        vehicleSpec: state.vehicleSpec,
-        selections: Array.from(state.selectedOptions).map((id) => {
-          const o = OPTION_BY_ID[id];
-          return { id: o.id, name: o.name, section: o.sectionTitle, weight: o.weight };
-        }),
-        otherWork: state.otherWork,
-        coverageScore: score,
-        lead: state.lead,
+        vanInfo: {
+          ...state.vanInfo,
+          uses: Array.from(state.vanInfo.uses),
+        },
+        worries: {
+          stolen: state.worries.stolen,
+          worryList: Array.from(state.worries.worryList),
+        },
+        upgrades: {
+          existing: Array.from(state.upgrades.existing),
+          existingOther: state.upgrades.existingOther,
+          interested: Array.from(state.upgrades.interested),
+          wantsApp: state.upgrades.wantsApp,
+          budget: state.upgrades.budget,
+        },
+        scores: { current, possible },
+        contact: state.contact,
         submittedAt: new Date().toISOString(),
       };
-      console.log("VanSecure configurator submission:", JSON.stringify(payload, null, 2));
+      console.log("VanSecure risk profile submission:", JSON.stringify(payload, null, 2));
+      sendLeadToWebhook(payload);
 
       state.submitted = true;
+      window.scrollTo(0, 0);
       render();
-
-      const lines = [
-        `Hi VanSecure, I've just built a security spec online — ${score}% coverage.`,
-        "",
-        `Name: ${state.lead.name}`,
-        state.lead.phone ? `Phone: ${state.lead.phone}` : null,
-        state.lead.email ? `Email: ${state.lead.email}` : null,
-        "",
-        "Selected hardware:",
-        ...Object.entries(summaryBySection).flatMap(([section, items]) => [
-          `${section}:`,
-          ...items.map((name) => `- ${name}`),
-        ]),
-        state.otherWork.trim() ? "" : null,
-        state.otherWork.trim() ? `Other work: ${state.otherWork.trim()}` : null,
-      ].filter(Boolean);
-
-      const message = lines.join("\n");
-      const whatsappUrl = `https://wa.me/+447858192831?text=${encodeURIComponent(message)}`;
-      window.location.href = whatsappUrl;
     });
   }
 }
+
+function toggleSetItem(set, id) {
+  if (set.has(id)) set.delete(id);
+  else set.add(id);
+}
+
+function clearRegResult() {
+  const v = state.vanInfo;
+  v.make = ""; v.model = ""; v.year = ""; v.regLookupConfirmed = false;
+  v.registration = ""; v.bodyType = ""; v.wheelbase = ""; v.roofHeight = ""; v.colour = "";
+}
+
+function updateSubmitState() {
+  const btn = document.querySelector('#lead-form button[type="submit"]');
+  if (!btn) return;
+  const { name, phone, email, consent } = state.contact;
+  const canSubmit = name.trim() && phone.trim() && email.trim() && consent;
+  btn.disabled = !canSubmit;
+  btn.className = `w-full mt-2 rounded-md py-3.5 flex items-center justify-center gap-2 axm-display uppercase tracking-wide text-sm transition-all
+    ${canSubmit ? "bg-[#C79A3D] text-white hover:bg-[#B78A2F]" : "bg-[#EAEEF3] text-[#8593A8] cursor-not-allowed"}`;
+}
+
+/* ---------------------- Reg lookup iframe integration ---------------------- */
+/*
+ * Confirmed by Ben (2026-08-24). Message contract from
+ * https://vsops.vansecure.co.uk/embed/reg-lookup on every successful lookup:
+ *   { type: 'vsops:reg-lookup', registration, make, model, bodyType,
+ *     wheelbase, roofHeight, yearOfManufacture, colour }
+ * Any absent field arrives as null. If the manual-dropdown model list
+ * doesn't include the returned model (e.g. a variant we haven't listed),
+ * we still accept the lookup and fall back to "Other" for the dropdown
+ * rather than rejecting a valid registration.
+ */
+window.addEventListener("message", (event) => {
+  if (event.origin !== "https://vsops.vansecure.co.uk") return;
+  const data = event.data || {};
+  if (data.type !== "vsops:reg-lookup") return;
+
+  const make = data.make || "";
+  const model = data.model || "";
+  const year = data.yearOfManufacture ? String(data.yearOfManufacture) : "";
+
+  if (!make) return;
+
+  state.vanInfo.make = MAKE_MODELS[make] ? make : "Other / Not Listed";
+  state.vanInfo.model = MAKE_MODELS[state.vanInfo.make]?.includes(model) ? model : (model || "");
+  state.vanInfo.year = year;
+  state.vanInfo.regLookupConfirmed = true;
+
+  // Extra detail from the lookup — not shown in the quiz UI, but carried
+  // through to the final lead payload so the ops team gets the full picture.
+  state.vanInfo.registration = data.registration || "";
+  state.vanInfo.bodyType = data.bodyType || "";
+  state.vanInfo.wheelbase = data.wheelbase || "";
+  state.vanInfo.roofHeight = data.roofHeight || "";
+  state.vanInfo.colour = data.colour || "";
+
+  render();
+});
 
 render();
 </script>
