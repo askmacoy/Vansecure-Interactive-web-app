@@ -23,30 +23,6 @@
 <div id="app"></div>
 
 <script>
-/* ==================================================================== */
-/* VanSecure — 4-Step Risk Profile Quiz (FB/IG ad landing funnel)        */
-/* Direction per Ben's brief: replaces the hardware configurator with a  */
-/* short questionnaire that profiles the customer's worries + wants,    */
-/* then shows a gamified Current vs Possible risk score before handing  */
-/* off to a callback / quote booking form.                              */
-/* ==================================================================== */
-
-/* Brand tokens (updated 2026-08-31 — matched to Ben's fleet-cost-calculator
- * reference code, superseding the earlier approximated palette):
- * bg #223243  panel #192633  input/recessed-bg #131d27  border slate-700/50
- * accent/button #3FA9F5 "VanSecure Blue" (hover #2594e2, active #1a80c9)
- * button-text white  text-heading white  text-body slate-300
- * text-dim slate-400  text-muted/disabled-text slate-500
- * success #34D399 (unchanged — no green in the reference)  disabled-bg slate-800
- * gauge: current #64748B (neutral slate, current) vs possible #3FA9F5 (accent) —
- * mirrors the calculator's own "direct costs (slate) vs hidden costs (accent)"
- * bar contrast pattern.
- * Fonts: headline = Poppins Bold/700, body = Poppins Regular/400,
- * small technical labels/score readouts kept in IBM Plex Mono.
- */
-
-/* ---------------------- Step 1 data: Make / Model / Year ---------------------- */
-
 const MAKE_MODELS = {
   "Ford": ["Transit", "Transit Custom", "Transit Connect", "Transit Courier"],
   "Mercedes-Benz": ["Sprinter", "Vito", "Citan"],
@@ -69,8 +45,6 @@ const VAN_USES = [
   { id: "fleet", label: "Fleet of Vans" },
 ];
 
-/* ---------------------- Step 2 data ---------------------- */
-
 const STOLEN_OPTIONS = [
   { id: "yes", label: "Yes" },
   { id: "no", label: "No" },
@@ -83,8 +57,6 @@ const WORRIES = [
   { id: "liability", label: "Having an accident and not being able to prove you weren't at fault" },
   { id: "staff_visibility", label: "Not knowing what your staff are doing in your vans" },
 ];
-
-/* ---------------------- Step 3 data ---------------------- */
 
 const EXISTING_UPGRADES = [
   { id: "deadlocks", label: "Deadlocks", category: "locking" },
@@ -109,14 +81,8 @@ const BUDGETS = [
   { id: "unsure", label: "Unsure — I need more information" },
 ];
 
-/* Score weights — total 100 across categories */
 const CATEGORY_WEIGHTS = { locking: 30, shields: 25, dashcam: 20, tracking: 20, app: 5 };
 
-/* ---------------------- Step 3 fleet cost calculator ---------------------- */
-/* Ported from Ben's standalone "Fleet Downtime & True Theft Cost Calculator"
- * reference file — same inputs/formula, dropped into Security Wants so
- * customers can rough out their own downtime exposure before picking a
- * budget band. Defaults match the standalone tool's starting values. */
 const FLEET_CALC_DEFAULTS = { vans: 1, days: 4, revenue: 500, tools: 1200, excess: 250, hire: 90, penalty: 500 };
 
 const FLEET_CALC_FIELDS = [
@@ -129,20 +95,7 @@ const FLEET_CALC_FIELDS = [
   { field: "penalty", label: "SLA / Contract Penalty Fee", min: 0, max: 2500, step: 100, prefix: "£" },
 ];
 
-/* ---------------------- Lead delivery ---------------------- */
-/*
- * CRM-AGNOSTIC BY DESIGN: on submit we POST the full lead payload as JSON
- * to this webhook URL. Almost every CRM (HubSpot, Pipedrive, Zoho,
- * Salesforce, GoHighLevel, etc.) can receive a webhook either natively or
- * via a one-step Zapier/Make "Catch Webhook" trigger that creates/updates
- * a contact — so this doesn't need to change no matter which CRM is
- * confirmed. Just drop the URL in below once it's available.
- *
- * Leave blank ("") until then — the funnel still works fully without it
- * (console logging + WhatsApp handoff still happen), it just means no
- * lead reaches the CRM yet.
- */
-const LEAD_WEBHOOK_URL = ""; // e.g. "https://vsops.vansecure.co.uk/api/webhooks/quiz"
+const LEAD_WEBHOOK_URL = "";
 
 function sendLeadToWebhook(payload) {
   if (!LEAD_WEBHOOK_URL) return;
@@ -151,18 +104,15 @@ function sendLeadToWebhook(payload) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   }).catch((err) => {
-    // Never block the customer's flow on this — just log it for us to notice.
     console.error("VanSecure lead webhook failed:", err);
   });
 }
-
-/* ---------------------- App state ---------------------- */
 
 const state = {
   step: 0,
   vanInfo: {
     mode: "reg", make: "", model: "", year: "", uses: new Set(),
-    regLookupConfirmed: false,
+    regLookupConfirmed: false, regLookupSlow: false,
     registration: "", bodyType: "", wheelbase: "", roofHeight: "", colour: "",
   },
   worries: { stolen: "", worryList: new Set() },
@@ -179,8 +129,6 @@ const state = {
 };
 
 const STEP_LABELS = ["Your Van", "Risk Profile", "Security Wants", "Your Report"];
-
-/* ---------------------- Scoring ---------------------- */
 
 function computeScores() {
   const haveCategory = new Set();
@@ -209,8 +157,6 @@ function computeScores() {
   };
 }
 
-/* ---------------------- Dual gauge ---------------------- */
-
 function polarPoint(cx, cy, r, angleDeg) {
   const rad = (angleDeg * Math.PI) / 180;
   return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
@@ -234,12 +180,10 @@ function dualGaugeSVG(current, possible) {
 
   return `
     <svg viewBox="0 0 260 150" class="w-full max-w-[320px]">
-      <!-- possible (outer, brand cyan) -->
       <path d="${arc(rOuter)}" fill="none" stroke="#1e293b" stroke-width="${strokeWidth}" stroke-linecap="round" />
       <path d="${arc(rOuter)}" fill="none" stroke="#3FA9F5" stroke-width="${strokeWidth}" stroke-linecap="round"
         stroke-dasharray="${circOuter}" stroke-dashoffset="${circOuter * (1 - possible / 100)}"
         style="transition: stroke-dashoffset 600ms ease" />
-      <!-- current (inner, secondary blue) -->
       <path d="${arc(rInner)}" fill="none" stroke="#1e293b" stroke-width="${strokeWidth}" stroke-linecap="round" />
       <path d="${arc(rInner)}" fill="none" stroke="#64748B" stroke-width="${strokeWidth}" stroke-linecap="round"
         stroke-dasharray="${circInner}" stroke-dashoffset="${circInner * (1 - current / 100)}"
@@ -249,21 +193,11 @@ function dualGaugeSVG(current, possible) {
   `;
 }
 
-/* ---------------------- Shared UI helpers ---------------------- */
-
-/* ---------------------- Brand logo ---------------------- */
-/* Real VanSecure logo (provided 2026-08-28). Icon mark keeps its original
- * brand blue (#1A96D3) unchanged; the wordmark's original fill (#273747,
- * a dark navy meant for a light background) is swapped for a light tone
- * here since it would be unreadable against our dark header — same
- * adaptation any dark-mode logo variant needs. */
 const LOGO_SVG = `<svg class="h-7 w-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 183 49" fill="none"><path d="M19.6677 0C11.9711 11.5167 0 12.9448 0 12.9448C3.81649 43.145 19.6677 48.8968 19.6677 48.8968C19.6677 48.8968 35.5188 43.145 39.3353 12.9448C39.3353 12.9448 27.3643 11.5167 19.6677 0ZM22.6827 39.8957H17.3778L9.49035 15.2901H15.266L18.4082 26.5054C18.4082 26.5054 18.6626 27.4619 18.8789 28.2742C19.057 29.0079 19.2733 29.7154 19.4514 30.4098L20.1638 33.1482C20.8126 30.4098 20.9907 29.6761 21.8558 26.4661L25.0362 15.2901H30.6592L22.6827 39.8957Z" fill="#1A96D3"></path><path d="M170.75 28.8112C171.145 26.7188 172.429 25.5679 174.401 25.5679C176.373 25.5679 177.556 26.7057 177.772 28.8112H170.75ZM183 32.4992C183 30.0275 182.746 28.3797 182.135 26.8234C180.851 23.4755 178.09 21.5923 174.439 21.5923C169.211 21.5923 165.598 25.4241 165.598 30.9822C165.598 36.5402 169.147 40.3328 174.477 40.3328C178.599 40.3328 181.817 38.1227 182.784 34.657H177.619C176.933 35.7556 175.979 36.2394 174.617 36.2394C172.429 36.2394 171.03 34.9186 170.712 32.4861H183V32.4992ZM154.15 22.0761V39.862H159.238V34.8532C159.238 31.4268 159.416 29.779 159.912 28.5889C160.485 27.268 161.922 26.4572 163.677 26.4572C164.11 26.4572 164.364 26.4572 164.962 26.5357V21.6053C161.273 21.5661 159.988 22.3769 158.984 25.2541L159.123 22.0892H154.15V22.0761ZM151.326 22.0761H146.237V32.0938C146.237 33.8593 146.161 34.2647 145.703 34.8924C145.232 35.5594 144.444 35.9256 143.515 35.9256C142.586 35.9256 141.76 35.5594 141.289 34.8924C140.818 34.2647 140.755 33.82 140.755 32.0938V22.0761H135.666V33.2315C135.666 35.7686 136.137 37.2857 137.32 38.5019C138.465 39.6789 140.119 40.3459 141.9 40.3459C144.011 40.3459 145.271 39.6789 146.479 37.9134V39.862H151.313V22.0761H151.326ZM133.631 28.4843C133.313 24.2471 130.235 21.5923 125.719 21.5923C120.236 21.5923 116.941 25.1233 116.941 31.0214C116.941 36.9195 120.274 40.3328 125.541 40.3328C130.12 40.3328 133.135 37.7957 133.847 33.2969L128.899 33.0354C128.505 35.1409 127.5 36.0956 125.681 36.0956C123.315 36.0956 122.068 34.2908 122.068 30.8645C122.068 27.6211 123.327 25.8164 125.655 25.8164C127.372 25.8164 128.517 26.7711 128.81 28.4712H133.644L133.631 28.4843ZM95.9521 23.0047C95.7359 20.7945 95.3415 19.4736 94.5528 18.2574C93.0136 15.9426 90.2914 14.7656 86.4243 14.7656C80.3692 14.7656 76.8201 17.6035 76.8201 22.3508C76.8201 24.3386 77.4943 26.1434 78.7155 27.1765C79.7968 28.1312 81.3614 28.8374 83.9056 29.4651L88.2433 30.5637C89.9606 31.0083 90.8257 31.8584 90.8257 33.0615C90.8257 34.7878 89.1465 35.821 86.3861 35.821C83.1296 35.821 81.5904 34.5655 81.4759 31.7668H76.1077C76.1459 37.2595 79.8731 40.4244 86.3098 40.4244C92.7465 40.4244 96.3083 37.2988 96.3083 32.2115C96.3083 30.2629 95.6977 28.6805 94.4765 27.5296C93.3317 26.4311 91.856 25.7641 89.2101 25.0971L84.3762 23.9594C82.9133 23.5932 82.1883 22.887 82.1883 21.8669C82.1883 20.3237 83.7275 19.369 86.2716 19.369C88.9939 19.369 90.5712 20.546 90.5712 22.6123V23.0177H95.9394L95.9521 23.0047ZM56.9884 22.0892V39.8751H62.0767V29.8967C62.0767 28.3535 62.2548 27.6211 62.8272 26.9542C63.3615 26.3264 64.1502 25.9995 65.0152 25.9995C65.8802 25.9995 66.6689 26.3657 67.0887 27.0326C67.5212 27.6996 67.623 28.3927 67.623 30.1975V39.8751H72.7113V28.3535C72.7113 24.1555 70.4215 21.5792 66.6562 21.5792C64.8626 21.5792 63.794 22.0631 61.9241 23.8286V22.1023H56.9884V22.0892ZM48.2492 34.1339C47.4224 35.6379 46.2012 36.3833 44.5221 36.3833C42.8429 36.3833 41.9397 35.6902 41.9397 34.5001C41.9397 33.4277 42.7284 32.8 44.5602 32.3684L46.392 31.963C47.2443 31.7799 47.715 31.636 48.2492 31.4137V34.1339ZM42.3722 27.6865C42.5885 26.248 43.5934 25.5941 45.4507 25.5941C47.1044 25.5941 48.0966 26.2218 48.0966 27.2157C48.0966 27.9481 47.7023 28.2489 46.5574 28.432L43.797 28.9159C38.9631 29.7267 36.915 31.453 36.915 34.8009C36.915 38.1488 39.4592 40.359 43.2881 40.359C45.3235 40.359 46.5447 39.9143 48.2365 38.4758C48.4146 39.1427 48.4146 39.2474 48.6309 39.8751H53.8209C53.2485 38.9858 53.1722 38.7373 53.1722 36.8149V28.6412C53.1722 26.0257 52.7015 24.5871 51.4549 23.4493C50.0938 22.2331 48.0839 21.6053 45.4761 21.6053C40.6041 21.6053 38.1362 23.5932 37.8055 27.6865H42.3595H42.3722ZM103.241 28.8243C103.635 26.7319 104.92 25.581 106.892 25.581C108.864 25.581 110.047 26.7188 110.263 28.8243H103.241ZM115.491 32.5123C115.491 30.0405 115.237 28.3927 114.626 26.8365C113.341 23.4885 110.581 21.6053 106.93 21.6053C101.702 21.6053 98.0892 25.4371 98.0892 30.9952C98.0892 36.5533 101.638 40.3459 106.968 40.3459C111.09 40.3459 114.308 38.1357 115.275 34.6701H110.11C109.423 35.7686 108.469 36.2525 107.108 36.2525C104.92 36.2525 103.521 34.9317 103.203 32.4992H115.491V32.5123Z" fill="#F5F9FC"></path></svg>`;
 
 function iconTag(name, size, cls) {
   return `<i data-lucide="${name}" style="width:${size}px;height:${size}px" class="${cls || ''}"></i>`;
 }
-
-/* ---------------------- Fleet cost calculator markup ---------------------- */
 
 function formatNum(num) {
   return num.toLocaleString("en-GB");
@@ -337,10 +271,6 @@ function fleetCalculatorHTML() {
   `;
 }
 
-/* Sliders update their own DOM directly on "input" (not via the app's
- * full render()) so dragging stays smooth and doesn't fight the pointer —
- * same approach as the standalone calculator. Values are still written
- * back into state.upgrades.costCalc so they're carried in the lead payload. */
 function initFleetCalculator() {
   const sliders = FLEET_CALC_FIELDS.map((f) => document.getElementById(`fc-${f.field}`)).filter(Boolean);
   if (!sliders.length) return;
@@ -421,11 +351,6 @@ function navButtonsHTML(canNext) {
   `;
 }
 
-/* ---------------------- Step 0: Intro / Hero ---------------------- */
-/* NOTE — placeholder stats: "[verified trust count]" and "[£Xm+]" below
- * are stand-ins. Swap them for VanSecure's own sourced figures before
- * this goes live — don't ship someone else's numbers as fact. */
-
 function introHTML() {
   return `
     <div class="text-center">
@@ -477,8 +402,6 @@ function introHTML() {
   `;
 }
 
-/* ---------------------- Step 1: Van Info ---------------------- */
-
 function step1HTML() {
   const { mode, make, model, year, uses, regLookupConfirmed } = state.vanInfo;
   const models = make ? MAKE_MODELS[make] : [];
@@ -486,18 +409,8 @@ function step1HTML() {
   const canNext = hasVanDetails && uses.size > 0;
 
   const regPane = `
-    <div class="border border-slate-700/50 rounded-lg overflow-hidden bg-[#131d27]">
-      <iframe
-        src="https://vsops.vansecure.co.uk/embed/reg-lookup"
-        width="100%"
-        height="220"
-        frameborder="0"
-        title="VanSecure registration lookup"
-        style="display:block"
-      ></iframe>
-    </div>
     ${regLookupConfirmed ? `
-      <div class="flex items-center justify-between mt-3 border border-[#34D399]/30 bg-[#34D399]/10 rounded-md px-3.5 py-2.5">
+      <div class="flex items-center justify-between border border-[#34D399]/30 bg-[#34D399]/10 rounded-md px-3.5 py-2.5">
         <div class="flex items-center gap-2 text-sm text-white">
           ${iconTag("check-circle-2", 15, "text-[#34D399]")}
           <span>${year} ${make} ${model} — found</span>
@@ -505,11 +418,31 @@ function step1HTML() {
         <button type="button" data-action="clear-reg-result" class="text-[12px] text-[#3FA9F5] hover:underline">Not right? Change</button>
       </div>
     ` : `
+      <div class="border border-slate-700/50 rounded-lg overflow-hidden bg-[#131d27]" style="min-height:220px">
+        <iframe
+          src="https://vsops.vansecure.co.uk/embed/reg-lookup"
+          width="100%"
+          height="220"
+          frameborder="0"
+          title="VanSecure registration lookup"
+          style="display:block"
+        ></iframe>
+      </div>
       <p class="text-[12px] text-slate-500 mt-2">Pop your reg in above and we'll fill in your van details automatically.</p>
+      ${state.vanInfo.regLookupSlow ? `
+        <div class="flex items-start gap-2 mt-3 border border-amber-500/30 bg-amber-500/10 rounded-md px-3.5 py-2.5">
+          ${iconTag("alert-triangle", 15, "text-amber-400 flex-shrink-0 mt-0.5")}
+          <div class="text-[12px] text-amber-200">
+            Still nothing? The lookup tool might not be loading right now.
+            <button type="button" data-action="switch-mode" data-id="manual" class="text-[#3FA9F5] hover:underline font-medium">Enter your van details manually instead</button>.
+          </div>
+        </div>
+      ` : `
+        <button type="button" data-action="switch-mode" data-id="manual" class="text-[12px] text-[#3FA9F5] hover:underline mt-3">
+          Don't have your reg number? Choose manually instead
+        </button>
+      `}
     `}
-    <button type="button" data-action="switch-mode" data-id="manual" class="text-[12px] text-[#3FA9F5] hover:underline mt-3">
-      Don't have your reg number? Choose manually instead
-    </button>
   `;
 
   const manualPane = `
@@ -564,8 +497,6 @@ function step1HTML() {
   `;
 }
 
-/* ---------------------- Step 2: Worries ---------------------- */
-
 function step2HTML() {
   const { stolen, worryList } = state.worries;
   const canNext = !!stolen;
@@ -599,8 +530,6 @@ function step2HTML() {
     </div>
   `;
 }
-
-/* ---------------------- Step 3: Upgrades & Budget ---------------------- */
 
 function step3HTML() {
   const { existing, existingOther, interested, wantsApp, budget } = state.upgrades;
@@ -659,8 +588,6 @@ function step3HTML() {
     </div>
   `;
 }
-
-/* ---------------------- Step 4: Score + Contact ---------------------- */
 
 function step4HTML() {
   const { current, possible } = computeScores();
@@ -773,11 +700,6 @@ function step4HTML() {
   `;
 }
 
-/* ---------------------- Safe icon rendering ---------------------- */
-/* lucide is loaded from a CDN — if it's blocked or slow (ad blockers,
- * corporate networks, flaky connections all do this in the real world),
- * calling lucide.createIcons() directly throws and crashes the whole app.
- * This guards against that and retries once the script actually arrives. */
 let lucideRetryScheduled = false;
 function safeCreateIcons() {
   if (typeof lucide !== "undefined" && lucide.createIcons) {
@@ -790,8 +712,6 @@ function safeCreateIcons() {
     }, 500);
   }
 }
-
-/* ---------------------- Main render ---------------------- */
 
 function render() {
   document.getElementById("app").innerHTML = `
@@ -828,9 +748,29 @@ function render() {
   safeCreateIcons();
   attachListeners();
   initFleetCalculator();
+  manageRegLookupFallbackTimer();
 }
 
-/* ---------------------- Event handling ---------------------- */
+/* If the reg-lookup iframe hasn't produced a result within 6s of being
+ * shown, surface the manual-entry fallback more prominently rather than
+ * leaving a dead/broken box on screen indefinitely (e.g. if vsops.vansecure.co.uk
+ * refuses to be framed from this origin, or the endpoint is unreachable). */
+let regLookupTimer = null;
+function manageRegLookupFallbackTimer() {
+  const showingLiveIframe = state.step === 1 && state.vanInfo.mode === "reg" && !state.vanInfo.regLookupConfirmed;
+  if (!showingLiveIframe) {
+    clearTimeout(regLookupTimer);
+    return;
+  }
+  if (state.vanInfo.regLookupSlow) return; // already shown, nothing to schedule
+  clearTimeout(regLookupTimer);
+  regLookupTimer = setTimeout(() => {
+    if (state.step === 1 && state.vanInfo.mode === "reg" && !state.vanInfo.regLookupConfirmed) {
+      state.vanInfo.regLookupSlow = true;
+      render();
+    }
+  }, 6000);
+}
 
 function attachListeners() {
   const app = document.getElementById("app");
@@ -932,7 +872,7 @@ function toggleSetItem(set, id) {
 
 function clearRegResult() {
   const v = state.vanInfo;
-  v.make = ""; v.model = ""; v.year = ""; v.regLookupConfirmed = false;
+  v.make = ""; v.model = ""; v.year = ""; v.regLookupConfirmed = false; v.regLookupSlow = false;
   v.registration = ""; v.bodyType = ""; v.wheelbase = ""; v.roofHeight = ""; v.colour = "";
 }
 
@@ -946,17 +886,6 @@ function updateSubmitState() {
     ${canSubmit ? "bg-[#3FA9F5] hover:bg-[#2594e2] text-white" : "bg-slate-800 text-slate-500 cursor-not-allowed"}`;
 }
 
-/* ---------------------- Reg lookup iframe integration ---------------------- */
-/*
- * Confirmed by Ben (2026-08-24). Message contract from
- * https://vsops.vansecure.co.uk/embed/reg-lookup on every successful lookup:
- *   { type: 'vsops:reg-lookup', registration, make, model, bodyType,
- *     wheelbase, roofHeight, yearOfManufacture, colour }
- * Any absent field arrives as null. If the manual-dropdown model list
- * doesn't include the returned model (e.g. a variant we haven't listed),
- * we still accept the lookup and fall back to "Other" for the dropdown
- * rather than rejecting a valid registration.
- */
 window.addEventListener("message", (event) => {
   if (event.origin !== "https://vsops.vansecure.co.uk") return;
   const data = event.data || {};
@@ -973,8 +902,6 @@ window.addEventListener("message", (event) => {
   state.vanInfo.year = year;
   state.vanInfo.regLookupConfirmed = true;
 
-  // Extra detail from the lookup — not shown in the quiz UI, but carried
-  // through to the final lead payload so the ops team gets the full picture.
   state.vanInfo.registration = data.registration || "";
   state.vanInfo.bodyType = data.bodyType || "";
   state.vanInfo.wheelbase = data.wheelbase || "";
