@@ -16,6 +16,9 @@
   .axm-display { font-family: 'Poppins', sans-serif; font-weight: 700; }
   .axm-mono { font-family: 'IBM Plex Mono', monospace; }
   input[type="range"] { accent-color: #3FA9F5; }
+  .quiz-question { font-family: 'Poppins', sans-serif; font-size: 0.875rem; font-weight: 500; color: #cbd5e1; }
+  .quiz-answer { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; }
+  select.quiz-select { min-height: 44px; white-space: normal; }
 </style>
 </head>
 <body class="bg-[#223243] text-slate-300">
@@ -48,14 +51,15 @@ const VAN_USES = [
 const STOLEN_OPTIONS = [
   { id: "yes", label: "Yes" },
   { id: "no", label: "No" },
-  { id: "attempted", label: "Thieves attempted but didn't get in" },
+  { id: "close_call", label: "I’ve come very close" },
 ];
 
 const WORRIES = [
-  { id: "losing_tools", label: "Losing tools" },
-  { id: "van_stolen", label: "Van(s) being stolen" },
-  { id: "liability", label: "Having an accident and not being able to prove you weren't at fault" },
-  { id: "staff_visibility", label: "Not knowing what your staff are doing in your vans" },
+  { id: "losing_tools", label: "Losing Tools" },
+  { id: "van_damage", label: "Damage to my van" },
+  { id: "losing_work", label: "Losing work" },
+  { id: "liability", label: "Not being able to prove an accident wasn’t my fault" },
+  { id: "staff_misbehaviour", label: "Staff misbehaving in our vans" },
 ];
 
 const EXISTING_UPGRADES = [
@@ -83,17 +87,6 @@ const BUDGETS = [
 
 const CATEGORY_WEIGHTS = { locking: 30, shields: 25, dashcam: 20, tracking: 20, app: 5 };
 
-const FLEET_CALC_DEFAULTS = { vans: 1, days: 4, revenue: 500, tools: 1200, excess: 250, hire: 90, penalty: 500 };
-
-const FLEET_CALC_FIELDS = [
-  { field: "vans", label: "Vans Cleared Out", min: 1, max: 10, step: 1, prefix: "" },
-  { field: "days", label: "Days Idle (Waiting for Repair)", min: 1, max: 14, step: 1, prefix: "" },
-  { field: "revenue", label: "Daily Lost Revenue (Per Van)", min: 100, max: 1500, step: 50, prefix: "£" },
-  { field: "tools", label: "Tool Replacement Shortfall", min: 0, max: 5000, step: 100, prefix: "£" },
-  { field: "excess", label: "Insurance Excess Fee", min: 0, max: 1000, step: 50, prefix: "£" },
-  { field: "hire", label: "Daily Hire Van Cost", min: 0, max: 200, step: 10, prefix: "£" },
-  { field: "penalty", label: "SLA / Contract Penalty Fee", min: 0, max: 2500, step: 100, prefix: "£" },
-];
 
 const LEAD_WEBHOOK_URL = "";
 
@@ -111,18 +104,16 @@ function sendLeadToWebhook(payload) {
 const state = {
   step: 0,
   vanInfo: {
-    mode: "manual", make: "", model: "", year: "", uses: new Set(),
-    regLookupConfirmed: false, regLookupSlow: false,
-    registration: "", bodyType: "", wheelbase: "", roofHeight: "", colour: "",
+    make: "", model: "", uses: new Set(),
   },
   worries: { stolen: "", worryList: new Set() },
   upgrades: {
     existing: new Set(),
     existingOther: "",
     interested: new Set(),
+    interestedOther: "",
     wantsApp: "",
     budget: "",
-    costCalc: { ...FLEET_CALC_DEFAULTS },
   },
   contact: { name: "", phone: "", email: "", postcode: "", goodTime: "", consent: false },
   submitted: false,
@@ -199,108 +190,6 @@ function iconTag(name, size, cls) {
   return `<i data-lucide="${name}" style="width:${size}px;height:${size}px" class="${cls || ''}"></i>`;
 }
 
-function formatNum(num) {
-  return num.toLocaleString("en-GB");
-}
-
-function fcSliderHTML({ field, label, min, max, step, prefix }, value) {
-  const displayVal = field === "days" ? (value === 1 ? "1 day" : `${value} days`) : formatNum(value);
-  return `
-    <div class="space-y-1.5">
-      <div class="flex justify-between items-center text-xs gap-3">
-        <label for="fc-${field}" class="text-slate-300">${label}</label>
-        <span id="fc-${field}-val" class="axm-mono text-[11px] font-semibold text-white px-2 py-0.5 bg-[#192633] rounded border border-slate-700/50 whitespace-nowrap">${prefix}${displayVal}</span>
-      </div>
-      <input type="range" id="fc-${field}" min="${min}" max="${max}" step="${step}" value="${value}"
-        class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
-    </div>
-  `;
-}
-
-function computeFleetCosts(vals) {
-  const directCosts = (vals.tools + vals.excess) * vals.vans;
-  const hiddenCosts = (vals.revenue * vals.days + vals.hire * vals.days + vals.penalty) * vals.vans;
-  return { directCosts, hiddenCosts, totalCost: directCosts + hiddenCosts };
-}
-
-function fleetCalculatorHTML() {
-  const vals = state.upgrades.costCalc;
-  const { directCosts, hiddenCosts, totalCost } = computeFleetCosts(vals);
-  const directPct = Math.max((directCosts / (directCosts + hiddenCosts || 1)) * 100, 2);
-  const hiddenPct = Math.max((hiddenCosts / (directCosts + hiddenCosts || 1)) * 100, 2);
-
-  return `
-    <div class="border border-slate-700/50 rounded-lg bg-[#131d27] p-4 mt-5">
-      <div class="flex items-center gap-2 mb-1">
-        ${iconTag("calculator", 14, "text-[#3FA9F5]")}
-        <h3 class="axm-display uppercase tracking-wide text-xs text-[#3FA9F5]">What Could Downtime Really Cost You?</h3>
-      </div>
-      <p class="text-[12px] text-slate-500 mb-4">Drag the sliders to see the rough impact of a break-in — this is a guide, not a quote.</p>
-
-      <div class="space-y-4">
-        ${FLEET_CALC_FIELDS.map((f) => fcSliderHTML(f, vals[f.field])).join("")}
-      </div>
-
-      <div class="mt-5 pt-4 border-t border-slate-800">
-        <div class="flex items-baseline justify-between">
-          <span class="text-xs text-slate-400">Estimated Total Impact</span>
-          <span class="axm-mono text-2xl font-semibold text-[#3FA9F5]">£<span id="fc-total">${formatNum(totalCost)}</span></span>
-        </div>
-        <div class="mt-3 space-y-2.5">
-          <div>
-            <div class="flex justify-between text-[11px] mb-1">
-              <span class="text-slate-400">Direct Losses (Tools + Excess)</span>
-              <span class="text-white font-medium">£<span id="fc-direct-label">${formatNum(directCosts)}</span></span>
-            </div>
-            <div class="w-full h-3 bg-[#192633] rounded overflow-hidden border border-slate-800">
-              <div id="fc-direct-bar" class="h-full bg-slate-500 transition-all duration-150 ease-out" style="width: ${directPct}%"></div>
-            </div>
-          </div>
-          <div>
-            <div class="flex justify-between text-[11px] mb-1">
-              <span class="text-[#3FA9F5] font-medium">Hidden Downtime Costs</span>
-              <span class="text-[#3FA9F5] font-medium">£<span id="fc-hidden-label">${formatNum(hiddenCosts)}</span></span>
-            </div>
-            <div class="w-full h-3 bg-[#192633] rounded overflow-hidden border border-slate-800">
-              <div id="fc-hidden-bar" class="h-full bg-[#3FA9F5] transition-all duration-150 ease-out" style="width: ${hiddenPct}%"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function initFleetCalculator() {
-  const sliders = FLEET_CALC_FIELDS.map((f) => document.getElementById(`fc-${f.field}`)).filter(Boolean);
-  if (!sliders.length) return;
-
-  function update() {
-    const vals = {};
-    FLEET_CALC_FIELDS.forEach((f) => {
-      vals[f.field] = parseInt(document.getElementById(`fc-${f.field}`).value, 10);
-    });
-    state.upgrades.costCalc = vals;
-
-    FLEET_CALC_FIELDS.forEach((f) => {
-      const display = f.field === "days" ? (vals.days === 1 ? "1 day" : `${vals.days} days`) : formatNum(vals[f.field]);
-      document.getElementById(`fc-${f.field}-val`).textContent = `${f.prefix}${display}`;
-    });
-
-    const { directCosts, hiddenCosts, totalCost } = computeFleetCosts(vals);
-    document.getElementById("fc-total").textContent = formatNum(totalCost);
-    document.getElementById("fc-direct-label").textContent = formatNum(directCosts);
-    document.getElementById("fc-hidden-label").textContent = formatNum(hiddenCosts);
-
-    const directPct = Math.max((directCosts / (directCosts + hiddenCosts || 1)) * 100, 2);
-    const hiddenPct = Math.max((hiddenCosts / (directCosts + hiddenCosts || 1)) * 100, 2);
-    document.getElementById("fc-direct-bar").style.width = `${directPct}%`;
-    document.getElementById("fc-hidden-bar").style.width = `${hiddenPct}%`;
-  }
-
-  sliders.forEach((el) => el.addEventListener("input", update));
-}
-
 function selectCard({ selected, label, shape, onAttr }) {
   return `
     <button type="button" ${onAttr}
@@ -310,22 +199,22 @@ function selectCard({ selected, label, shape, onAttr }) {
         ${selected ? "bg-[#3FA9F5] border-[#3FA9F5]" : "border-slate-600"}">
         ${selected ? iconTag("check", 11, "text-white") : ""}
       </span>
-      <span class="text-sm ${selected ? "text-white font-medium" : "text-slate-300"}">${label}</span>
+      <span class="quiz-answer ${selected ? "text-white font-medium" : "text-slate-300"}">${label}</span>
     </button>
   `;
 }
 
 function progressHTML() {
   return `
-    <div class="flex items-center gap-2 mb-8">
+    <div class="flex items-center gap-2 mb-8" aria-label="Quiz progress">
       ${STEP_LABELS.map((label, i) => {
         const stepNum = i + 1;
         const active = stepNum === state.step;
         const done = stepNum < state.step;
         return `
-          <div class="flex-1 flex flex-col items-center gap-1.5">
-            <div class="w-full h-1.5 rounded-full ${done ? "bg-[#34D399]" : active ? "bg-[#3FA9F5]" : "bg-slate-700/50"}"></div>
-            <span class="axm-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-center ${active ? "text-white font-medium" : "text-slate-500"}">${label}</span>
+          <div class="flex-1">
+            <div class="w-full h-1.5 rounded-full ${done ? "bg-[#34D399]" : active ? "bg-[#3FA9F5]" : "bg-slate-700/50"}"
+              role="progressbar" aria-label="${label}" aria-valuemin="0" aria-valuemax="1" aria-valuenow="${done || active ? 1 : 0}"></div>
           </div>
         `;
       }).join("")}
@@ -360,11 +249,11 @@ function introHTML() {
       </div>
 
       <h1 class="axm-display text-3xl sm:text-4xl leading-tight text-white mb-4">
-        First, how exposed is your van <span class="text-[#3FA9F5]">right now?</span>
+        What could you lose if your van is <span class="text-[#3FA9F5]">attacked?</span>
       </h1>
 
       <p class="text-sm text-slate-400 max-w-sm mx-auto mb-7">
-        Most tradespeople never find out how at-risk their van is until it's already been hit. Take the 60-second check, see where the gaps are, and get a tailored plan to close them.
+        Most tradespeople never find out what they stand to lose until it's already too late. Take this 60-second quiz, see where the gaps are, and get a tailored plan to close them.
       </p>
 
       <button type="button" data-action="start-quiz"
@@ -376,113 +265,46 @@ function introHTML() {
         <span class="w-6 h-6 rounded-full bg-[#34D399]/10 border border-[#34D399]/30 flex items-center justify-center flex-shrink-0">
           ${iconTag("shield-check", 13, "text-[#34D399]")}
         </span>
-        <span class="text-slate-300"><span class="text-[#34D399] font-semibold">[verified trust count]</span> UK tradespeople already protected</span>
+        <span class="text-slate-300"><span class="text-[#34D399] font-semibold">Over 10,000</span> UK tradespeople already protected</span>
       </div>
 
-      <div class="flex items-center justify-center gap-1 mt-4 text-[#3FA9F5]">
+      <a href="https://www.google.com/search?q=VanSecure+Google+Reviews" target="_blank" rel="noopener"
+        class="inline-flex items-center justify-center gap-1.5 mt-4 text-[#3FA9F5] hover:text-white transition-colors">
         ${Array.from({ length: 5 }).map(() => `<i data-lucide="star" style="width:13px;height:13px;fill:#3FA9F5;color:#3FA9F5"></i>`).join("")}
-        <span class="axm-mono text-[11px] text-slate-400 ml-1.5">As rated by our customers</span>
-      </div>
-    </div>
-
-    <div class="h-2 rounded-full my-9"
-      style="background: repeating-linear-gradient(135deg, #3FA9F5 0 14px, transparent 14px 28px); opacity: 0.45;"></div>
-
-    <div class="text-center">
-      <div class="axm-display text-4xl sm:text-5xl text-[#3FA9F5] mb-1">[£Xm+]</div>
-      <div class="axm-mono text-xs uppercase tracking-wider text-[#3FA9F5]/80 mb-4">stolen from UK vans every year</div>
-      <p class="text-sm text-slate-400 max-w-sm mx-auto">
-        Van break-ins happen regularly across the UK, and most stolen tools are never recovered. If your van was hit tomorrow, could you prove what was inside?
-      </p>
-      <button type="button" data-action="start-quiz"
-        class="mt-7 w-full sm:w-auto inline-flex items-center justify-center gap-2 axm-display uppercase tracking-wide text-sm px-8 py-4 rounded-full bg-[#3FA9F5] hover:bg-[#2594e2] active:bg-[#1a80c9] text-white transition-colors">
-        Get My Risk Score ${iconTag("arrow-right", 16)}
-      </button>
+        <span class="axm-mono text-[11px] underline underline-offset-2">View our 5-star Google reviews</span>
+      </a>
     </div>
   `;
 }
 
 function step1HTML() {
-  const { mode, make, model, year, uses, regLookupConfirmed } = state.vanInfo;
-  const models = make ? MAKE_MODELS[make] : [];
-  const hasVanDetails = regLookupConfirmed || (make && model && year);
+  const { make, model, uses } = state.vanInfo;
+  const models = make ? [...MAKE_MODELS[make]].sort((a, b) => a.localeCompare(b, "en-GB")) : [];
+  const hasVanDetails = !!(make && model);
   const canNext = hasVanDetails && uses.size > 0;
-
-  const regPane = `
-    ${regLookupConfirmed ? `
-      <div class="flex items-center justify-between border border-[#34D399]/30 bg-[#34D399]/10 rounded-md px-3.5 py-2.5">
-        <div class="flex items-center gap-2 text-sm text-white">
-          ${iconTag("check-circle-2", 15, "text-[#34D399]")}
-          <span>${year} ${make} ${model} — found</span>
-        </div>
-        <button type="button" data-action="clear-reg-result" class="text-[12px] text-[#3FA9F5] hover:underline">Not right? Change</button>
-      </div>
-    ` : `
-      <div class="border border-slate-700/50 rounded-lg overflow-hidden bg-[#131d27]" style="min-height:220px">
-        <iframe
-          src="https://vsops.vansecure.co.uk/embed/reg-lookup"
-          width="100%"
-          height="220"
-          frameborder="0"
-          title="VanSecure registration lookup"
-          style="display:block"
-        ></iframe>
-      </div>
-      <p class="text-[12px] text-slate-500 mt-2">Pop your reg in above and we'll fill in your van details automatically.</p>
-      ${state.vanInfo.regLookupSlow ? `
-        <div class="flex items-start gap-2 mt-3 border border-amber-500/30 bg-amber-500/10 rounded-md px-3.5 py-2.5">
-          ${iconTag("alert-triangle", 15, "text-amber-400 flex-shrink-0 mt-0.5")}
-          <div class="text-[12px] text-amber-200">
-            Still nothing? The lookup tool might not be loading right now.
-            <button type="button" data-action="switch-mode" data-id="manual" class="text-[#3FA9F5] hover:underline font-medium">Enter your van details manually instead</button>.
-          </div>
-        </div>
-      ` : `
-        <button type="button" data-action="switch-mode" data-id="manual" class="text-[12px] text-[#3FA9F5] hover:underline mt-3">
-          Don't have your reg number? Choose manually instead
-        </button>
-      `}
-    `}
-  `;
-
-  const manualPane = `
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <div>
-        <label class="axm-mono text-[10px] tracking-wider text-slate-400 uppercase">Make</label>
-        <select data-field="make" class="w-full mt-1 bg-[#131d27] border border-slate-700/50 rounded-md px-3 py-2.5 text-sm text-[#E7EEF5] focus:outline-none focus:border-[#3FA9F5]">
-          <option value="">Select make</option>
-          ${MAKES.map((m) => `<option value="${m}" ${make === m ? "selected" : ""}>${m}</option>`).join("")}
-        </select>
-      </div>
-      <div>
-        <label class="axm-mono text-[10px] tracking-wider text-slate-400 uppercase">Model</label>
-        <select data-field="model" ${make ? "" : "disabled"} class="w-full mt-1 bg-[#131d27] border border-slate-700/50 rounded-md px-3 py-2.5 text-sm text-[#E7EEF5] focus:outline-none focus:border-[#3FA9F5] disabled:bg-[#223243] disabled:text-slate-500">
-          <option value="">${make ? "Select model" : "Select make first"}</option>
-          ${models.map((m) => `<option value="${m}" ${model === m ? "selected" : ""}>${m}</option>`).join("")}
-        </select>
-      </div>
-      <div>
-        <label class="axm-mono text-[10px] tracking-wider text-slate-400 uppercase">Year</label>
-        <select data-field="year" class="w-full mt-1 bg-[#131d27] border border-slate-700/50 rounded-md px-3 py-2.5 text-sm text-[#E7EEF5] focus:outline-none focus:border-[#3FA9F5]">
-          <option value="">Select year</option>
-          ${YEARS.map((y) => `<option value="${y}" ${String(year) === String(y) ? "selected" : ""}>${y}</option>`).join("")}
-        </select>
-      </div>
-    </div>
-    <button type="button" data-action="switch-mode" data-id="reg" class="text-[12px] text-[#3FA9F5] hover:underline mt-3">
-      Got your reg number? Look it up instead
-    </button>
-  `;
 
   return `
     <div>
-      <h2 class="axm-display uppercase tracking-wide text-lg text-white mb-1">Tell Us About Your Van</h2>
-      <p class="text-sm text-slate-400 mb-5">A few quick details so we can tailor your risk score.</p>
+      <h2 class="axm-display uppercase tracking-wide text-lg text-white mb-5">Tell Us About Your Van</h2>
 
-      <label class="axm-mono text-[10px] tracking-wider text-slate-400 uppercase mb-2 block">Your Van</label>
-      ${mode === "reg" ? regPane : manualPane}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="quiz-question block">Make</label>
+          <select data-field="make" class="quiz-select w-full mt-1 bg-[#131d27] border border-slate-700/50 rounded-md px-3 py-2.5 text-sm text-[#E7EEF5] focus:outline-none focus:border-[#3FA9F5]">
+            <option value="">Select Make</option>
+            ${MAKES.map((m) => `<option value="${m}" ${make === m ? "selected" : ""}>${m}</option>`).join("")}
+          </select>
+        </div>
+        <div>
+          <label class="quiz-question block">Model</label>
+          <select data-field="model" ${make ? "" : "disabled"} class="quiz-select w-full mt-1 bg-[#131d27] border border-slate-700/50 rounded-md px-3 py-2.5 text-sm text-[#E7EEF5] focus:outline-none focus:border-[#3FA9F5] disabled:bg-[#223243] disabled:text-slate-500">
+            <option value="">${make ? "Select Model" : "Select Make first"}</option>
+            ${models.map((m) => `<option value="${m}" ${model === m ? "selected" : ""}>${m}</option>`).join("")}
+          </select>
+        </div>
+      </div>
 
-      <label class="axm-mono text-[10px] tracking-wider text-slate-400 uppercase mt-6 block">How do you use your van? (select all that apply)</label>
+      <label class="quiz-question mt-6 block">How do you use your van? (please select all that apply)</label>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         ${VAN_USES.map((u) => selectCard({
           selected: uses.has(u.id),
@@ -503,10 +325,9 @@ function step2HTML() {
 
   return `
     <div>
-      <h2 class="axm-display uppercase tracking-wide text-lg text-white mb-1">Your Risk Profile</h2>
-      <p class="text-sm text-slate-400 mb-5">Help us understand what you're up against.</p>
+      <h2 class="axm-display uppercase tracking-wide text-lg text-white mb-5">Your Risk Profile</h2>
 
-      <label class="axm-mono text-[10px] tracking-wider text-slate-400 uppercase">Have you ever had your tools stolen?</label>
+      <label class="quiz-question block">Have you ever had your tools stolen?</label>
       <div class="grid grid-cols-1 gap-2 mt-2 mb-5">
         ${STOLEN_OPTIONS.map((o) => selectCard({
           selected: stolen === o.id,
@@ -516,7 +337,7 @@ function step2HTML() {
         })).join("")}
       </div>
 
-      <label class="axm-mono text-[10px] tracking-wider text-slate-400 uppercase">What worries keep you up at night? (select all that apply)</label>
+      <label class="quiz-question block">What worries keep you up at night? (please select all that apply)</label>
       <div class="grid grid-cols-1 gap-2 mt-2">
         ${WORRIES.map((w) => selectCard({
           selected: worryList.has(w.id),
@@ -532,15 +353,14 @@ function step2HTML() {
 }
 
 function step3HTML() {
-  const { existing, existingOther, interested, wantsApp, budget } = state.upgrades;
-  const canNext = !!budget;
+  const { existing, existingOther, interested, interestedOther, wantsApp, budget } = state.upgrades;
+  const canNext = interested.size > 0 && !!budget;
 
   return `
     <div>
-      <h2 class="axm-display uppercase tracking-wide text-lg text-white mb-1">Security Wants</h2>
-      <p class="text-sm text-slate-400 mb-5">What's fitted already, and what you're after.</p>
+      <h2 class="axm-display uppercase tracking-wide text-lg text-white mb-5">SECURITY</h2>
 
-      <label class="axm-mono text-[10px] tracking-wider text-slate-400 uppercase">Do you have any upgrades already?</label>
+      <label class="quiz-question block">Do you have any upgrades already? (please select all that apply)</label>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         ${EXISTING_UPGRADES.map((u) => selectCard({
           selected: existing.has(u.id),
@@ -549,10 +369,10 @@ function step3HTML() {
           onAttr: `data-action="toggle-existing" data-id="${u.id}"`,
         })).join("")}
       </div>
-      <input type="text" data-field="existingOther" value="${existingOther}" placeholder="Other (tell us what)"
-        class="w-full mt-2 bg-[#131d27] border border-slate-700/50 rounded-md px-3 py-2.5 text-sm text-[#E7EEF5] placeholder-slate-500 focus:outline-none focus:border-[#3FA9F5]" />
+      <input type="text" data-field="existingOther" value="${existingOther}" placeholder="Other (please specify)"
+        class="quiz-answer w-full mt-2 bg-[#131d27] border border-slate-700/50 rounded-md px-3 py-2.5 text-[#E7EEF5] placeholder-slate-500 focus:outline-none focus:border-[#3FA9F5]" />
 
-      <label class="axm-mono text-[10px] tracking-wider text-slate-400 uppercase mt-5 block">What are you interested in fitting?</label>
+      <label class="quiz-question mt-5 block">What are you interested in fitting? <span class="text-[#3FA9F5]">*</span> (please select all that apply)</label>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         ${INTERESTED_UPGRADES.map((u) => selectCard({
           selected: interested.has(u.id),
@@ -561,9 +381,11 @@ function step3HTML() {
           onAttr: `data-action="toggle-interested" data-id="${u.id}"`,
         })).join("")}
       </div>
+      <input type="text" data-field="interestedOther" value="${interestedOther}" placeholder="Other (please specify)"
+        class="quiz-answer w-full mt-2 bg-[#131d27] border border-slate-700/50 rounded-md px-3 py-2.5 text-[#E7EEF5] placeholder-slate-500 focus:outline-none focus:border-[#3FA9F5]" />
 
-      <label class="axm-mono text-[10px] tracking-wider text-slate-400 uppercase mt-5 block">Would you like to monitor your van from an app on your phone?</label>
-      <div class="grid grid-cols-2 gap-2 mt-2 max-w-xs">
+      <label class="quiz-question mt-5 block">Would you like to monitor your van from your phone?</label>
+      <div class="grid grid-cols-2 gap-2 mt-2">
         ${["yes", "no"].map((v) => selectCard({
           selected: wantsApp === v,
           label: v === "yes" ? "Yes" : "No",
@@ -572,9 +394,7 @@ function step3HTML() {
         })).join("")}
       </div>
 
-      ${fleetCalculatorHTML()}
-
-      <label class="axm-mono text-[10px] tracking-wider text-slate-400 uppercase mt-5 block">What is your budget?</label>
+      <label class="quiz-question mt-5 block">What is your budget? <span class="text-[#3FA9F5]">*</span></label>
       <div class="grid grid-cols-1 gap-2 mt-2">
         ${BUDGETS.map((b) => selectCard({
           selected: budget === b.id,
@@ -718,9 +538,9 @@ function render() {
     <header class="bg-[#192633] border-b border-slate-700/50">
       <div class="max-w-lg mx-auto px-5 py-3.5 flex items-center gap-2.5">
         ${LOGO_SVG}
-        <div class="ml-auto flex items-center gap-1 text-[#3FA9F5]">
-          ${Array.from({ length: 5 }).map(() => `<i data-lucide="star" style="width:11px;height:11px;fill:#3FA9F5;color:#3FA9F5"></i>`).join("")}
-        </div>
+        <a href="tel:+442046368841" class="ml-auto text-[11px] sm:text-xs text-[#3FA9F5] hover:text-white transition-colors whitespace-nowrap">
+          Call/Whatsapp on 020 4636 8841
+        </a>
       </div>
     </header>
 
@@ -735,9 +555,6 @@ function render() {
           ${state.step === 1 ? step1HTML() : state.step === 2 ? step2HTML() : state.step === 3 ? step3HTML() : step4HTML()}
         </div>
       `}
-      <p class="text-center text-[11px] text-slate-500 mt-5">
-        Takes under 2 minutes · No obligation · We'll never share your details
-      </p>
     </main>
 
     <footer class="text-center py-5 text-[11px] text-slate-500">
@@ -747,30 +564,8 @@ function render() {
 
   safeCreateIcons();
   attachListeners();
-  initFleetCalculator();
-  manageRegLookupFallbackTimer();
 }
 
-/* If the reg-lookup iframe hasn't produced a result within 6s of being
- * shown, surface the manual-entry fallback more prominently rather than
- * leaving a dead/broken box on screen indefinitely (e.g. if vsops.vansecure.co.uk
- * refuses to be framed from this origin, or the endpoint is unreachable). */
-let regLookupTimer = null;
-function manageRegLookupFallbackTimer() {
-  const showingLiveIframe = state.step === 1 && state.vanInfo.mode === "reg" && !state.vanInfo.regLookupConfirmed;
-  if (!showingLiveIframe) {
-    clearTimeout(regLookupTimer);
-    return;
-  }
-  if (state.vanInfo.regLookupSlow) return; // already shown, nothing to schedule
-  clearTimeout(regLookupTimer);
-  regLookupTimer = setTimeout(() => {
-    if (state.step === 1 && state.vanInfo.mode === "reg" && !state.vanInfo.regLookupConfirmed) {
-      state.vanInfo.regLookupSlow = true;
-      render();
-    }
-  }, 6000);
-}
 
 function attachListeners() {
   const app = document.getElementById("app");
@@ -785,11 +580,6 @@ function attachListeners() {
       if (action === "start-quiz") { state.step = 1; window.scrollTo(0, 0); render(); return; }
 
       if (action === "toggle-use") toggleSetItem(state.vanInfo.uses, id);
-      if (action === "switch-mode") {
-        state.vanInfo.mode = id;
-        if (id === "reg") clearRegResult();
-      }
-      if (action === "clear-reg-result") clearRegResult();
       if (action === "set-stolen") state.worries.stolen = id;
       if (action === "toggle-worry") toggleSetItem(state.worries.worryList, id);
       if (action === "toggle-existing") toggleSetItem(state.upgrades.existing, id);
@@ -807,8 +597,8 @@ function attachListeners() {
       const val = e.target.value;
       if (field === "make") { state.vanInfo.make = val; state.vanInfo.model = ""; render(); return; }
       if (field === "model") { state.vanInfo.model = val; render(); return; }
-      if (field === "year") { state.vanInfo.year = val; render(); return; }
       if (field === "existingOther") { state.upgrades.existingOther = val; return; }
+      if (field === "interestedOther") { state.upgrades.interestedOther = val; return; }
       if (field === "name") { state.contact.name = val; }
       if (field === "phone") { state.contact.phone = val; }
       if (field === "email") { state.contact.email = val; }
@@ -847,9 +637,9 @@ function attachListeners() {
           existing: Array.from(state.upgrades.existing),
           existingOther: state.upgrades.existingOther,
           interested: Array.from(state.upgrades.interested),
+          interestedOther: state.upgrades.interestedOther,
           wantsApp: state.upgrades.wantsApp,
           budget: state.upgrades.budget,
-          costCalc: state.upgrades.costCalc,
         },
         scores: { current, possible },
         contact: state.contact,
@@ -870,11 +660,6 @@ function toggleSetItem(set, id) {
   else set.add(id);
 }
 
-function clearRegResult() {
-  const v = state.vanInfo;
-  v.make = ""; v.model = ""; v.year = ""; v.regLookupConfirmed = false; v.regLookupSlow = false;
-  v.registration = ""; v.bodyType = ""; v.wheelbase = ""; v.roofHeight = ""; v.colour = "";
-}
 
 function updateSubmitState() {
   const btn = document.querySelector('#lead-form button[type="submit"]');
@@ -886,30 +671,6 @@ function updateSubmitState() {
     ${canSubmit ? "bg-[#3FA9F5] hover:bg-[#2594e2] text-white" : "bg-slate-800 text-slate-500 cursor-not-allowed"}`;
 }
 
-window.addEventListener("message", (event) => {
-  if (event.origin !== "https://vsops.vansecure.co.uk") return;
-  const data = event.data || {};
-  if (data.type !== "vsops:reg-lookup") return;
-
-  const make = data.make || "";
-  const model = data.model || "";
-  const year = data.yearOfManufacture ? String(data.yearOfManufacture) : "";
-
-  if (!make) return;
-
-  state.vanInfo.make = MAKE_MODELS[make] ? make : "Other / Not Listed";
-  state.vanInfo.model = MAKE_MODELS[state.vanInfo.make]?.includes(model) ? model : (model || "");
-  state.vanInfo.year = year;
-  state.vanInfo.regLookupConfirmed = true;
-
-  state.vanInfo.registration = data.registration || "";
-  state.vanInfo.bodyType = data.bodyType || "";
-  state.vanInfo.wheelbase = data.wheelbase || "";
-  state.vanInfo.roofHeight = data.roofHeight || "";
-  state.vanInfo.colour = data.colour || "";
-
-  render();
-});
 
 render();
 </script>
